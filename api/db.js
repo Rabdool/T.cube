@@ -1,31 +1,37 @@
 import { MongoClient } from 'mongodb';
 
-const uri = process.env.STORAGE_URL;
+const uri = process.env.STORAGE_URL || process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB || 'tcube';
 
 let client;
 let clientPromise;
 
 if (!uri) {
-    console.warn('Missing MONGODB_URI environment variable');
+    console.error('Database connection string missing. Expected STORAGE_URL or MONGODB_URI.');
 } else {
-    // Preserve connection across hot reloads in development
-    if (process.env.NODE_ENV === 'development') {
-        if (!global._mongoClientPromise) {
+    try {
+        if (process.env.NODE_ENV === 'development') {
+            if (!global._mongoClientPromise) {
+                client = new MongoClient(uri);
+                global._mongoClientPromise = client.connect();
+            }
+            clientPromise = global._mongoClientPromise;
+        } else {
             client = new MongoClient(uri);
-            global._mongoClientPromise = client.connect();
+            clientPromise = client.connect();
         }
-        clientPromise = global._mongoClientPromise;
-    } else {
-        client = new MongoClient(uri);
-        clientPromise = client.connect();
+    } catch (e) {
+        console.error('MongoClient initialization error:', e);
     }
 }
 
 export default async function handler(req, res) {
     if (!clientPromise) {
-        console.error('MongoDB credentials missing. Set MONGODB_URI environment variable.');
-        return res.status(500).json({ error: 'Database configuration missing on server.' });
+        return res.status(500).json({ 
+            error: 'Database connection not initialized.', 
+            details: 'Check if STORAGE_URL or MONGODB_URI is set in Vercel environment variables.',
+            debug: { hasUri: !!uri }
+        });
     }
 
     try {
