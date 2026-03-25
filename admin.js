@@ -12,25 +12,46 @@ function toggleTheme() {
     localStorage.setItem('ttt_theme', document.body.classList.contains('light-theme') ? 'light' : 'dark');
 }
 
-// ===== LocalStorage Helpers =====
+// ===== Database Integration =====
+let dbUsers = [];
+let dbStats = { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 };
+
+async function fetchInitialDB() {
+    try {
+        const res = await fetch('/api/db');
+        const data = await res.json();
+        if (data.users) dbUsers = data.users;
+        if (data.stats) dbStats = data.stats;
+    } catch (e) {
+        console.error('Failed to load from DB', e);
+    }
+}
+
+// ===== Persistent Data Helpers =====
 function getUsers() {
-    return JSON.parse(localStorage.getItem('ttt_users') || '[]');
+    return dbUsers;
 }
 
 function saveUsers(users) {
-    localStorage.setItem('ttt_users', JSON.stringify(users));
+    dbUsers = users;
+    fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'users', data: users })
+    }).catch(e => console.error(e));
 }
 
 function getWinStats() {
-    try {
-        const raw = localStorage.getItem('ttt_wins');
-        if (raw) return JSON.parse(raw);
-    } catch (e) { }
-    return { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 };
+    return dbStats;
 }
 
 function saveWinStats(stats) {
-    localStorage.setItem('ttt_wins', JSON.stringify(stats));
+    dbStats = stats;
+    fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'stats', data: stats })
+    }).catch(e => console.error(e));
 }
 
 // ===== Admin Auth Gate =====
@@ -456,7 +477,8 @@ function escapeAttr(str) {
 }
 
 // ===== Init =====
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+    await fetchInitialDB();
     if (!checkAdminAccess()) return;
     refreshDashboard();
 });

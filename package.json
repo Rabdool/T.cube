@@ -1,0 +1,11 @@
+{
+  "name": "tcube",
+  "version": "1.0.0",
+  "description": "T.cube TIC TAC TOE Backend Setup",
+  "scripts": {
+    "start": "echo 'Vercel Static with API Runtime'"
+  },
+  "dependencies": {
+    "@vercel/kv": "^3.0.0"
+  }
+}

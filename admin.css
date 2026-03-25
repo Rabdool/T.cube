@@ -46,7 +46,7 @@ body {
     background-size: 400% 400%;
     animation: bgShift 12s ease-in-out infinite alternate;
     color: var(--text);
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     overflow: hidden;
     transition: background 0.5s ease, color 0.5s ease;
