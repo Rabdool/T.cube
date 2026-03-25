@@ -63,25 +63,20 @@ function ensureAdminExists() {
 
     let updated = false;
 
-    // If no admin exists, promote the first user
-    const hasAdmin = users.some(u => u.isAdmin);
-    if (!hasAdmin) {
-        users[0].isAdmin = true;
-        updated = true;
-    }
-
-    // Auto-promote specific user
-    const specificAdminIdx = users.findIndex(u => u.email === 'abdurrahmanabdulkabir06@gmail.com');
-    if (specificAdminIdx !== -1 && !users[specificAdminIdx].isAdmin) {
-        users[specificAdminIdx].isAdmin = true;
-        updated = true;
-    }
+    // Strictly enforce single admin
+    users.forEach(u => {
+        if (u.email === 'abdurrahmanabdulkabir06@gmail.com') {
+            if (!u.isAdmin) { u.isAdmin = true; updated = true; }
+        } else {
+            if (u.isAdmin) { u.isAdmin = false; updated = true; }
+        }
+    });
 
     if (updated) saveUsers(users);
 }
 
 function checkAdminAccess() {
-    if (!currentUserEmail) {
+    if (!currentUserEmail || currentUserEmail !== 'abdurrahmanabdulkabir06@gmail.com') {
         window.location.href = 'tictactoe.html';
         return false;
     }

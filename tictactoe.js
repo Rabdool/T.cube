@@ -798,26 +798,22 @@ function showAdminButton() {
     const users = getAuthUsers();
     let updated = false;
 
-    // Auto-promote first user if no admin exists
-    const hasAdmin = users.some(u => u.isAdmin);
-    if (!hasAdmin && users.length > 0) {
-        users[0].isAdmin = true;
-        updated = true;
-    }
-
-    // Auto-promote specific user
-    const specificAdminIdx = users.findIndex(u => u.email === 'abdurrahmanabdulkabir06@gmail.com');
-    if (specificAdminIdx !== -1 && !users[specificAdminIdx].isAdmin) {
-        users[specificAdminIdx].isAdmin = true;
-        updated = true;
-    }
+    // Strictly enforce single admin
+    users.forEach(u => {
+        if (u.email === 'abdurrahmanabdulkabir06@gmail.com') {
+            if (!u.isAdmin) { u.isAdmin = true; updated = true; }
+        } else {
+            if (u.isAdmin) { u.isAdmin = false; updated = true; }
+        }
+    });
 
     if (updated) saveAuthUsers(users);
 
-    const user = users.find(u => u.email === currentUser);
     const adminBtn = document.getElementById('admin-toggle');
-    if (adminBtn && user && user.isAdmin) {
+    if (adminBtn && currentUser === 'abdurrahmanabdulkabir06@gmail.com') {
         adminBtn.style.display = 'flex';
+    } else if (adminBtn) {
+        adminBtn.style.display = 'none';
     }
 }
 
