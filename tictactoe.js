@@ -61,6 +61,12 @@ let p2Sign = 'O';       // 2P: P2 sign
 let lastWinner = null;  // sign of last game's winner (null = tie or first game)
 let tieLastMover = null; // sign of the player who made the last move in a tie
 
+// Online State
+let peer = null;
+let conn = null;
+let onlineRole = null; // 'host' or 'guest'
+let onlineRoomId = null;
+
 // Auth State
 let currentUser = null;
 
@@ -190,6 +196,9 @@ function updateLabels() {
     if (mode === '2p') {
         labelLeft.textContent = `Player 1 (${p1Sign})`;
         labelRight.textContent = `Player 2 (${p2Sign})`;
+    } else if (mode === 'online') {
+        labelLeft.textContent = `You (${humanSign})`;
+        labelRight.textContent = `Opponent (${cpuSign})`;
     } else {
         labelLeft.textContent = `You (${humanSign})`;
         labelRight.textContent = `CPU (${cpuSign})`;
@@ -197,19 +206,30 @@ function updateLabels() {
 }
 
 function goToMenu() {
+    if (peer) { peer.destroy(); peer = null; }
+    if (conn) { conn.close(); conn = null; }
     resultOverlay.classList.remove('active');
     gameScreen.classList.remove('active');
     diffScreen.classList.remove('active');
+    const onlineScreen = document.getElementById('online-screen');
+    if (onlineScreen) onlineScreen.classList.remove('active');
     menuScreen.classList.add('active');
     gameActive = false;
 }
 
 function restartGame() {
+    if (mode === 'online' && conn && conn.open) {
+        conn.send({ type: 'restart' });
+    }
+    restartGameLogic();
+}
+
+function restartGameLogic() {
     resultOverlay.classList.remove('active');
 
     // Swap signs based on winner: loser starts (gets 'X')
     if (lastWinner !== null) {
-        if (mode === '1p') {
+        if (mode === '1p' || mode === 'online') {
             // If human won, human gets 'O' (goes second), CPU gets 'X' (goes first)
             if (lastWinner === humanSign) {
                 humanSign = 'O';
@@ -230,7 +250,7 @@ function restartGame() {
         }
     } else if (tieLastMover !== null) {
         // Tie game: the player who made the last move gets 'O' (goes second)
-        if (mode === '1p') {
+        if (mode === '1p' || mode === 'online') {
             if (tieLastMover === humanSign) {
                 humanSign = 'O';
                 cpuSign = 'X';
@@ -280,6 +300,14 @@ function updateStatus() {
         const playerName = isP1Turn ? 'Player 1' : 'Player 2';
         statusText.textContent = `${playerName}'s turn (${currentTurn})`;
         statusText.style.color = currentTurn === 'O' ? 'var(--o-color)' : 'var(--x-color)';
+    } else if (mode === 'online') {
+        if (currentTurn === humanSign) {
+            statusText.textContent = `Your turn (${humanSign})`;
+            statusText.style.color = humanSign === 'O' ? 'var(--o-color)' : 'var(--x-color)';
+        } else {
+            statusText.textContent = `Opponent's turn (${cpuSign})`;
+            statusText.style.color = cpuSign === 'O' ? 'var(--o-color)' : 'var(--x-color)';
+        }
     } else {
         if (currentTurn === humanSign) {
             statusText.textContent = `Your turn (${humanSign})`;
@@ -296,8 +324,13 @@ function cellClick(index) {
     if (!gameActive) return;
     if (board[index] === 'O' || board[index] === 'X') return;
     if (mode === '1p' && currentTurn !== humanSign) return;
+    if (mode === 'online' && currentTurn !== humanSign) return;
 
     placeMove(index, currentTurn);
+
+    if (mode === 'online' && conn && conn.open) {
+        conn.send({ type: 'move', index: index, sign: currentTurn });
+    }
 
     const winner = checkWin(currentTurn);
     if (winner) { endGame(currentTurn); return; }
@@ -508,6 +541,23 @@ function endGame(winnerSign) {
                 resultTitle.textContent = `${playerName} Wins!`;
                 resultSubtitle.textContent = 'Amazing move!';
                 statusText.textContent = `${playerName} wins!`;
+            } else if (mode === 'online') {
+                const humanWon = (winnerSign === humanSign);
+                if (humanWon) {
+                    scores.p1++; // Human is always p1 in layout
+                    updateUserStats('win');
+                    resultIcon.textContent = '🎉';
+                    resultTitle.textContent = 'You Won!';
+                    resultSubtitle.textContent = 'Great game!';
+                    statusText.textContent = 'You won!';
+                } else {
+                    scores.p2++; // Opponent is always p2
+                    updateUserStats('loss');
+                    resultIcon.textContent = '😞';
+                    resultTitle.textContent = 'Opponent Wins!';
+                    resultSubtitle.textContent = 'Well played by them.';
+                    statusText.textContent = 'Opponent wins!';
+                }
             } else {
                 const humanWon = (winnerSign === humanSign);
                 if (humanWon) {
@@ -572,7 +622,137 @@ function updateScoreboard() {
 }
 
 function onlineMultiplayer() {
-    alert('Online Multiplayer is coming soon! Stay tuned.');
+    menuScreen.classList.remove('active');
+    document.getElementById('online-screen').classList.add('active');
+    
+    document.getElementById('online-options').style.display = 'flex';
+    document.getElementById('online-host-view').style.display = 'none';
+    document.getElementById('online-join-view').style.display = 'none';
+    
+    document.getElementById('join-room-code').value = '';
+    document.getElementById('join-status').textContent = '';
+}
+
+function backToMenuFromOnline() {
+    if (peer) { peer.destroy(); peer = null; }
+    if (conn) { conn.close(); conn = null; }
+    document.getElementById('online-screen').classList.remove('active');
+    menuScreen.classList.add('active');
+}
+
+function generateRoomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+    return code;
+}
+
+function hostOnlineGame() {
+    document.getElementById('online-options').style.display = 'none';
+    document.getElementById('online-host-view').style.display = 'flex';
+    
+    onlineRoomId = generateRoomCode();
+    document.getElementById('room-code').textContent = onlineRoomId;
+    document.getElementById('host-status').textContent = 'Generating room...';
+    
+    peer = new Peer('tcube-' + onlineRoomId);
+    
+    peer.on('open', (id) => {
+        document.getElementById('host-status').textContent = 'Waiting for opponent to join...';
+    });
+    
+    peer.on('connection', (connection) => {
+        conn = connection;
+        setupConnection(conn, 'host');
+    });
+
+    peer.on('error', (err) => {
+        document.getElementById('host-status').textContent = 'Error: ' + err.type;
+    });
+}
+
+function showJoinInput() {
+    document.getElementById('online-options').style.display = 'none';
+    document.getElementById('online-join-view').style.display = 'flex';
+}
+
+function joinOnlineGame() {
+    const code = document.getElementById('join-room-code').value.trim().toUpperCase();
+    if (code.length === 0) return;
+    
+    const statusEl = document.getElementById('join-status');
+    statusEl.textContent = 'Connecting...';
+    
+    peer = new Peer();
+    
+    peer.on('open', (id) => {
+        conn = peer.connect('tcube-' + code);
+        
+        conn.on('open', () => {
+            statusEl.textContent = 'Connected!';
+            setupConnection(conn, 'guest');
+        });
+        
+        conn.on('error', (err) => {
+            statusEl.textContent = 'Connection failed: ' + err;
+        });
+    });
+
+    peer.on('error', (err) => {
+        statusEl.textContent = 'Error: ' + err.type;
+        if (err.type === 'peer-unavailable') {
+            statusEl.textContent = 'Room not found. Check the code and try again.';
+        }
+    });
+}
+
+function setupConnection(connection, role) {
+    onlineRole = role;
+    
+    connection.on('data', (data) => {
+        if (data.type === 'move') {
+            placeMove(data.index, data.sign);
+            const winner = checkWin(data.sign);
+            if (winner) { endGame(data.sign); return; }
+            if (getFreeCells().length === 0) { endGame(null); return; }
+            currentTurn = currentTurn === 'O' ? 'X' : 'O';
+            updateStatus();
+        } else if (data.type === 'restart') {
+            restartGameLogic();
+        }
+    });
+    
+    connection.on('close', () => {
+        alert('Opponent disconnected!');
+        goToMenu();
+    });
+    
+    startOnlineGame();
+}
+
+function startOnlineGame() {
+    mode = 'online';
+    scores = { p1: 0, p2: 0, draw: 0 };
+    lastWinner = null;
+    tieLastMover = null;
+
+    humanSign = onlineRole === 'host' ? 'X' : 'O';
+    cpuSign = onlineRole === 'host' ? 'O' : 'X';
+    p1Sign = 'X';
+    p2Sign = 'O';
+
+    updateLabels();
+    updateScoreboard();
+
+    document.getElementById('diff-badge').style.display = 'inline-block';
+    document.getElementById('diff-badge').textContent = onlineRole === 'host' ? 'Host (X)' : 'Guest (O)';
+    document.getElementById('diff-badge').style.background = 'var(--primary-color)22';
+    document.getElementById('diff-badge').style.color = 'var(--primary-color)';
+    document.getElementById('diff-badge').style.borderColor = 'var(--primary-color)44';
+
+    document.getElementById('online-screen').classList.remove('active');
+    gameScreen.classList.add('active');
+    resetBoard();
 }
 
 // ===== Auth & Users (Mock Backend via LocalStorage) =====

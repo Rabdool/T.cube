@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="tictactoe.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 
 <body>
@@ -295,6 +296,50 @@
                 <!-- Filled dynamically by JS -->
             </div>
             <button class="btn btn-ghost btn-small btn-back-menu" onclick="backToMenu()">← Back</button>
+        </div>
+    </div>
+
+    <!-- Online Multiplayer Screen -->
+    <div id="online-screen" class="screen">
+        <div class="card diff-card" style="min-height: 400px; display: flex; flex-direction: column;">
+            <h1 class="title title-sm">Online Match</h1>
+            <p class="subtitle" id="online-subtitle">Host or Join a game</p>
+            
+            <div class="diff-buttons" id="online-options" style="margin-top: 20px; flex: 1;">
+                <button class="btn diff-btn" onclick="hostOnlineGame()" style="--diff-color: #ff7043;">
+                    <span class="diff-emoji">🏠</span>
+                    <span class="btn-text">
+                        <strong>Host Game</strong>
+                        <small>Create a room and share code</small>
+                    </span>
+                </button>
+                <button class="btn diff-btn" onclick="showJoinInput()" style="--diff-color: #6abf69;">
+                    <span class="diff-emoji">🤝</span>
+                    <span class="btn-text">
+                        <strong>Join Game</strong>
+                        <small>Enter an existing room code</small>
+                    </span>
+                </button>
+            </div>
+
+            <div id="online-host-view" style="display: none; text-align: center; flex: 1; align-items: center; justify-content: center; flex-direction: column;">
+                <p>Your Room Code:</p>
+                <h2 id="room-code" style="font-size: 3rem; letter-spacing: 8px; margin: 20px 0; color: var(--primary-color);">...</h2>
+                <p style="font-size: 0.9rem; margin-bottom: 20px; opacity: 0.8;" id="host-status">Generating code...</p>
+            </div>
+
+            <div id="online-join-view" style="display: none; flex: 1; justify-content: center; flex-direction: column;">
+                <div class="form-group" style="text-align: left;">
+                    <label>Enter Room Code</label>
+                    <input type="text" id="join-room-code" placeholder="e.g. A1B2C" maxlength="6" style="text-transform: uppercase; text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+                </div>
+                <button class="btn btn-primary btn-full" onclick="joinOnlineGame()" style="margin-top: 10px;">
+                    <span class="btn-text" style="align-items: center"><strong>Join Room</strong></span>
+                </button>
+                <p id="join-status" style="margin-top: 15px; font-size: 0.9rem; text-align: center;"></p>
+            </div>
+
+            <button class="btn btn-ghost btn-small btn-back-menu" onclick="backToMenuFromOnline()" style="margin-top: auto;">← Back</button>
         </div>
     </div>
 
