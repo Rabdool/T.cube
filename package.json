@@ -6,6 +6,6 @@
     "start": "echo 'Vercel Static with API Runtime'"
   },
   "dependencies": {
-    "@vercel/kv": "^3.0.0"
+    "mongodb": "^7.1.1"
   }
 }
