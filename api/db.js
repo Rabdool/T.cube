@@ -38,39 +38,81 @@ export default async function handler(req, res) {
         console.error('❌ Database connection not initialized.');
         return res.status(500).json({ 
             error: 'Database connection not initialized.', 
-            details: 'Check if STORAGE_URL or MONGODB_URI is set in Vercel environment variables.',
-            env_vars_check: { hasUri: !!uri, nodeEnv: process.env.NODE_ENV || 'undefined' }
+            details: 'Check if STORAGE_URL or MONGODB_URI is set in Vercel environment variables.'
         });
     }
 
     try {
         const connectedClient = await clientPromise;
         const db = connectedClient.db(dbName);
-        const collection = db.collection('kv_store');
+        const usersCollection = db.collection('users');
+        const kvCollection = db.collection('kv_store');
+
+        // --- MIGRATION: Move from KV to 'users' collection if needed ---
+        const kvUsersEntry = await kvCollection.findOne({ key: 'ttt_users' });
+        if (kvUsersEntry && Array.isArray(kvUsersEntry.value)) {
+            for (const user of kvUsersEntry.value) {
+                await usersCollection.updateOne(
+                    { email: user.email },
+                    { $set: user },
+                    { upsert: true }
+                );
+            }
+            // Once migrated, clear the bulk key to avoid re-migration
+            await kvCollection.deleteOne({ key: 'ttt_users' });
+            console.log(`✅ Migrated ${kvUsersEntry.value.length} users from KV to 'users' collection`);
+        }
 
         if (req.method === 'GET') {
-            // Fetch users and stats
-            const usersData = await collection.findOne({ key: 'ttt_users' });
-            const statsData = await collection.findOne({ key: 'ttt_wins' });
-
-            const users = usersData?.value || [];
+            // Fetch users from 'users' collection and global stats from 'kv_store'
+            const users = await usersCollection.find({}).toArray();
+            const statsData = await kvCollection.findOne({ key: 'ttt_wins' });
             const stats = statsData?.value || { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 };
             
             return res.status(200).json({ users, stats });
+
         } else if (req.method === 'POST') {
-            const { type, data } = req.body;
-            let key = type === 'users' ? 'ttt_users' : (type === 'stats' ? 'ttt_wins' : null);
-            
-            if (!key) return res.status(400).json({ error: 'Invalid operation type' });
+            const { type, data, action } = req.body;
 
-            // Upsert generic key/value
-            await collection.updateOne(
-                { key: key },
-                { $set: { value: data } },
-                { upsert: true }
-            );
+            if (type === 'stats') {
+                await kvCollection.updateOne(
+                    { key: 'ttt_wins' },
+                    { $set: { value: data } },
+                    { upsert: true }
+                );
+                return res.status(200).json({ success: true });
+            }
 
-            return res.status(200).json({ success: true });
+            if (type === 'users') {
+                // If action is provided, handle specific user update
+                if (action === 'signup' || action === 'add' || action === 'update') {
+                    if (!data.email) return res.status(400).json({ error: 'Missing email' });
+                    await usersCollection.updateOne(
+                        { email: data.email },
+                        { $set: data },
+                        { upsert: true }
+                    );
+                    return res.status(200).json({ success: true });
+                } else if (action === 'delete') {
+                    if (!data.email) return res.status(400).json({ error: 'Missing email' });
+                    await usersCollection.deleteOne({ email: data.email });
+                    return res.status(200).json({ success: true });
+                } else if (action === 'sync_all') {
+                    // LEGACY SUPPORT: If still sending full array, handle it (carefully)
+                    if (!Array.isArray(data)) return res.status(400).json({ error: 'Data must be an array' });
+                    for (const user of data) {
+                        await usersCollection.updateOne(
+                            { email: user.email },
+                            { $set: user },
+                            { upsert: true }
+                        );
+                    }
+                    return res.status(200).json({ success: true });
+                }
+                return res.status(400).json({ error: 'Invalid user action' });
+            }
+
+            return res.status(400).json({ error: 'Invalid operation type' });
         } else {
             res.setHeader('Allow', ['GET', 'POST']);
             return res.status(405).end(`Method ${req.method} Not Allowed`);

@@ -32,13 +32,21 @@ function getUsers() {
     return dbUsers;
 }
 
-function saveUsers(users) {
-    dbUsers = users;
+function saveUsers(data, action = 'update') {
+    // If we're updating a single user, data is the user object.
+    if (!Array.isArray(data)) {
+        const idx = dbUsers.findIndex(u => u.email === data.email);
+        if (idx !== -1) dbUsers[idx] = data;
+        else dbUsers.push(data);
+    } else {
+        dbUsers = data;
+    }
+
     fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'users', data: users })
-    }).catch(e => console.error(e));
+        body: JSON.stringify({ type: 'users', action, data })
+    }).catch(e => console.error('Admin sync failed', e));
 }
 
 function getWinStats() {
@@ -62,18 +70,10 @@ function ensureAdminExists() {
     let users = getUsers();
     if (users.length === 0) return;
 
-    let updated = false;
-
-    // Correctly flag all allowed admins
+    // Local-only flag sync (server handles persistence)
     users.forEach(u => {
-        const shouldBeAdmin = ALLOWED_ADMINS.includes(u.email);
-        if (u.isAdmin !== shouldBeAdmin) {
-            u.isAdmin = shouldBeAdmin;
-            updated = true;
-        }
+        u.isAdmin = ALLOWED_ADMINS.includes(u.email);
     });
-
-    if (updated) saveUsers(users);
 }
 
 function checkAdminAccess() {
@@ -308,7 +308,7 @@ function saveUserEdit() {
     users[idx].username = newUsername;
     users[idx].isAdmin = (newRole === 'admin');
 
-    saveUsers(users);
+    saveUsers(users[idx], 'update');
     closeModal();
     refreshDashboard();
     refreshUsersTable();
@@ -353,8 +353,9 @@ function confirmDeleteUser(email) {
         'Delete User',
         () => {
             let users = getUsers();
-            users = users.filter(u => u.email !== email);
-            saveUsers(users);
+            const userToDelete = users.find(u => u.email === email);
+            dbUsers = users.filter(u => u.email !== email);
+            saveUsers({ email }, 'delete'); // Send email for deletion
             refreshDashboard();
             refreshUsersTable();
             showToast('🗑️', `User "${displayName}" deleted`);
@@ -382,7 +383,7 @@ function confirmDeleteAllUsers() {
         'This will permanently delete ALL user accounts. You will be logged out. This action cannot be undone!',
         'Delete Everyone',
         () => {
-            saveUsers([]);
+            saveUsers([], 'sync_all'); // Clear all
             localStorage.removeItem('ttt_currentUser');
             showToast('⚠️', 'All users deleted. Redirecting...');
             setTimeout(() => {

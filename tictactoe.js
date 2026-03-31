@@ -518,7 +518,9 @@ function updateUserStats(result) {
         if (result === 'win') users[idx].stats.wins++;
         else if (result === 'loss') users[idx].stats.losses++;
         else if (result === 'tie') users[idx].stats.ties++;
-        saveAuthUsers(users);
+        
+        // Sync ONLY this user
+        saveAuthUsers(users[idx], 'update');
     }
 }
 
@@ -775,13 +777,23 @@ function getAuthUsers() {
     return dbUsers;
 }
 
-function saveAuthUsers(users) {
-    dbUsers = users;
+function saveAuthUsers(data, action = 'update') {
+    // If we're updating a single user, data is the user object.
+    // If we're updating everything (legacy), data is the array.
+    if (!Array.isArray(data)) {
+        // Find and update in local list
+        const idx = dbUsers.findIndex(u => u.email === data.email);
+        if (idx !== -1) dbUsers[idx] = data;
+        else dbUsers.push(data);
+    } else {
+        dbUsers = data;
+    }
+
     fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'users', data: users })
-    }).catch(e => console.error(e));
+        body: JSON.stringify({ type: 'users', action, data })
+    }).catch(e => console.error('Sync failed', e));
 }
 
 function initAuth() {
@@ -799,17 +811,7 @@ function showAdminButton() {
     const users = getAuthUsers();
     let updated = false;
 
-    // Synchronize admin flags for allowed emails
-    users.forEach(u => {
-        const shouldBeAdmin = ALLOWED_ADMINS.includes(u.email);
-        if (u.isAdmin !== shouldBeAdmin) {
-            u.isAdmin = shouldBeAdmin;
-            updated = true;
-        }
-    });
-
-    if (updated) saveAuthUsers(users);
-
+    // Admin button visibility check (local only, server handles the actual flag)
     const adminBtn = document.getElementById('admin-toggle');
     if (adminBtn && ALLOWED_ADMINS.includes(currentUser)) {
         adminBtn.style.display = 'flex';
@@ -915,8 +917,8 @@ function handleSignup(e) {
         return;
     }
 
-    users.push({ username, email, password: pwd });
-    saveAuthUsers(users);
+    const newUser = { username, email, password: pwd };
+    saveAuthUsers(newUser, 'signup');
 
     // Auto login
     localStorage.setItem('ttt_currentUser', email);
