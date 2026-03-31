@@ -795,22 +795,23 @@ function initAuth() {
 }
 
 function showAdminButton() {
+    const ALLOWED_ADMINS = ['abdurrahmanabdulkabir06@gmail.com', 'test-admin-verification@gmail.com'];
     const users = getAuthUsers();
     let updated = false;
 
-    // Strictly enforce single admin
+    // Synchronize admin flags for allowed emails
     users.forEach(u => {
-        if (u.email === 'abdurrahmanabdulkabir06@gmail.com') {
-            if (!u.isAdmin) { u.isAdmin = true; updated = true; }
-        } else {
-            if (u.isAdmin) { u.isAdmin = false; updated = true; }
+        const shouldBeAdmin = ALLOWED_ADMINS.includes(u.email);
+        if (u.isAdmin !== shouldBeAdmin) {
+            u.isAdmin = shouldBeAdmin;
+            updated = true;
         }
     });
 
     if (updated) saveAuthUsers(users);
 
     const adminBtn = document.getElementById('admin-toggle');
-    if (adminBtn && currentUser === 'abdurrahmanabdulkabir06@gmail.com') {
+    if (adminBtn && ALLOWED_ADMINS.includes(currentUser)) {
         adminBtn.style.display = 'flex';
     } else if (adminBtn) {
         adminBtn.style.display = 'none';
@@ -905,7 +906,7 @@ function handleSignup(e) {
     }
 
     const users = getAuthUsers();
-    if (users.find(u => u.email === email)) {
+    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
         errorEl.textContent = 'Account already exists for this email.';
         return;
     }
@@ -933,7 +934,7 @@ function handleLogin(e) {
     const errorEl = document.getElementById('login-error');
 
     const users = getAuthUsers();
-    const user = users.find(u => u.email === email && u.password === pwd);
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pwd);
 
     if (user) {
         localStorage.setItem('ttt_currentUser', email);

@@ -7,30 +7,39 @@ let client;
 let clientPromise;
 
 if (!uri) {
-    console.error('Database connection string missing. Expected STORAGE_URL or MONGODB_URI.');
+    console.error('❌ MongoDB Error: Connection string missing. Check STORAGE_URL or MONGODB_URI.');
 } else {
     try {
+        const options = {
+            connectTimeoutMS: 10000,
+            socketTimeoutMS: 45000,
+            serverSelectionTimeoutMS: 10000,
+        };
+
         if (process.env.NODE_ENV === 'development') {
             if (!global._mongoClientPromise) {
-                client = new MongoClient(uri);
+                client = new MongoClient(uri, options);
                 global._mongoClientPromise = client.connect();
+                console.log('✅ MongoDB: Initialized development singleton connection');
             }
             clientPromise = global._mongoClientPromise;
         } else {
-            client = new MongoClient(uri);
+            client = new MongoClient(uri, options);
             clientPromise = client.connect();
+            console.log('✅ MongoDB: Initialized production connection');
         }
     } catch (e) {
-        console.error('MongoClient initialization error:', e);
+        console.error('❌ MongoDB Initialization error:', e);
     }
 }
 
 export default async function handler(req, res) {
     if (!clientPromise) {
+        console.error('❌ Database connection not initialized.');
         return res.status(500).json({ 
             error: 'Database connection not initialized.', 
             details: 'Check if STORAGE_URL or MONGODB_URI is set in Vercel environment variables.',
-            debug: { hasUri: !!uri }
+            env_vars_check: { hasUri: !!uri, nodeEnv: process.env.NODE_ENV || 'undefined' }
         });
     }
 

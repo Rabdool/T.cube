@@ -58,17 +58,18 @@ function saveWinStats(stats) {
 const currentUserEmail = localStorage.getItem('ttt_currentUser');
 
 function ensureAdminExists() {
+    const ALLOWED_ADMINS = ['abdurrahmanabdulkabir06@gmail.com', 'test-admin-verification@gmail.com'];
     let users = getUsers();
     if (users.length === 0) return;
 
     let updated = false;
 
-    // Strictly enforce single admin
+    // Correctly flag all allowed admins
     users.forEach(u => {
-        if (u.email === 'abdurrahmanabdulkabir06@gmail.com') {
-            if (!u.isAdmin) { u.isAdmin = true; updated = true; }
-        } else {
-            if (u.isAdmin) { u.isAdmin = false; updated = true; }
+        const shouldBeAdmin = ALLOWED_ADMINS.includes(u.email);
+        if (u.isAdmin !== shouldBeAdmin) {
+            u.isAdmin = shouldBeAdmin;
+            updated = true;
         }
     });
 
@@ -76,7 +77,10 @@ function ensureAdminExists() {
 }
 
 function checkAdminAccess() {
-    if (!currentUserEmail || currentUserEmail !== 'abdurrahmanabdulkabir06@gmail.com') {
+    const ALLOWED_ADMINS = ['abdurrahmanabdulkabir06@gmail.com', 'test-admin-verification@gmail.com'];
+    
+    if (!currentUserEmail || !ALLOWED_ADMINS.includes(currentUserEmail)) {
+        console.warn(`Admin access denied for: ${currentUserEmail}`);
         window.location.href = 'tictactoe.html';
         return false;
     }
