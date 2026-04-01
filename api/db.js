@@ -1,4 +1,7 @@
 import { MongoClient } from 'mongodb';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const uri = process.env.STORAGE_URL || process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB || 'tcube';
@@ -85,6 +88,52 @@ export default async function handler(req, res) {
 
             if (type === 'users') {
                 // If action is provided, handle specific user update
+                if (action === 'send_verification') {
+                    if (!data.email || !data.username) return res.status(400).json({ error: 'Missing email or username' });
+                    const code = Math.floor(100000 + Math.random() * 900000).toString();
+                    
+                    await usersCollection.updateOne(
+                        { email: data.email },
+                        { $set: { ...data, isVerified: false, verificationCode: code } },
+                        { upsert: true }
+                    );
+
+                    try {
+                        const emailResult = await resend.emails.send({
+                            from: 'T.cube <onboarding@resend.dev>',
+                            to: [data.email],
+                            subject: 'T.cube - Verification Code',
+                            html: `<p>Welcome to T.cube! Your verification code is: <strong>${code}</strong></p>`
+                        });
+                        console.log('✅ Resend email successful:', emailResult);
+                        return res.status(200).json({ success: true });
+                    } catch(err) {
+                        console.error('❌ Resend Error:', err);
+                        return res.status(500).json({ error: 'Failed to send verification email' });
+                    }
+                }
+
+                if (action === 'verify_code') {
+                    const { email, code } = data;
+                    if (!email || !code) return res.status(400).json({ error: 'Missing email or code' });
+                    
+                    const user = await usersCollection.findOne({ email: email });
+                    if (!user) return res.status(404).json({ error: 'User not found' });
+                    
+                    if (user.verificationCode !== code) {
+                        return res.status(400).json({ error: 'Invalid verification code' });
+                    }
+                    
+                    await usersCollection.updateOne(
+                        { email: email },
+                        { 
+                            $set: { isVerified: true },
+                            $unset: { verificationCode: "" }
+                        }
+                    );
+                    return res.status(200).json({ success: true });
+                }
+
                 if (action === 'signup' || action === 'add' || action === 'update') {
                     if (!data.email) return res.status(400).json({ error: 'Missing email' });
                     await usersCollection.updateOne(

@@ -184,7 +184,10 @@ function refreshDashboard() {
                         <strong>${escapeHtml(u.username || '—')}</strong>
                     </div>
                 </td>
-                <td>${escapeHtml(u.email)}</td>
+                <td>
+                    ${escapeHtml(u.email)}
+                    ${u.isVerified === false ? '<span class="badge" style="color:var(--danger); border-color:rgba(229,57,83,0.3); margin-left:8px; font-size:10px;">Unverified</span>' : ''}
+                </td>
                 <td><span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">${u.isAdmin ? '🛡️ Admin' : 'User'}</span></td>
             </tr>
         `).join('');
@@ -233,7 +236,10 @@ function refreshUsersTable() {
                         <strong>${escapeHtml(u.username || '—')}</strong>
                     </div>
                 </td>
-                <td>${escapeHtml(u.email)}</td>
+                <td>
+                    ${escapeHtml(u.email)}
+                    ${u.isVerified === false ? '<span class="badge" style="color:var(--danger); border-color:rgba(229,57,83,0.3); margin-left:8px; font-size:10px;">Unverified</span>' : ''}
+                </td>
                 <td><span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">${u.isAdmin ? '🛡️ Admin' : 'User'}</span></td>
                 <td><strong>${played}</strong></td>
                 <td>

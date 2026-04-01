@@ -101,6 +101,7 @@ const authScreen = document.getElementById('auth-screen');
 const authLogin = document.getElementById('auth-login');
 const authSignup = document.getElementById('auth-signup');
 const authForgot = document.getElementById('auth-forgot');
+const authVerify = document.getElementById('auth-verify');
 const menuScreen = document.getElementById('menu-screen');
 const diffScreen = document.getElementById('difficulty-screen');
 const gameScreen = document.getElementById('game-screen');
@@ -824,14 +825,18 @@ function switchAuthView(view) {
     authLogin.style.display = 'none';
     authSignup.style.display = 'none';
     authForgot.style.display = 'none';
+    if(authVerify) authVerify.style.display = 'none';
 
     // Clear forms/errors
     document.getElementById('form-login').reset();
     document.getElementById('form-signup').reset();
     document.getElementById('form-forgot').reset();
+    if(document.getElementById('form-verify')) document.getElementById('form-verify').reset();
+    
     document.getElementById('login-error').textContent = '';
     document.getElementById('signup-error').textContent = '';
     document.getElementById('forgot-success').textContent = '';
+    if(document.getElementById('verify-error')) document.getElementById('verify-error').textContent = '';
 
     // Reset password strength UI
     document.getElementById('strength-fill').style.width = '0%';
@@ -840,6 +845,7 @@ function switchAuthView(view) {
     if (view === 'login') authLogin.style.display = 'block';
     if (view === 'signup') authSignup.style.display = 'block';
     if (view === 'forgot') authForgot.style.display = 'block';
+    if (view === 'verify' && authVerify) authVerify.style.display = 'block';
 }
 
 function togglePasswordVisibility(inputId, btn) {
@@ -894,58 +900,128 @@ function checkPasswordStrength(password) {
     }
 }
 
-function handleSignup(e) {
+let pendingSignupEmail = null;
+
+async function handleSignup(e) {
     e.preventDefault();
-    const username = document.getElementById('signup-username').value.trim();
-    const email = document.getElementById('signup-email').value.trim();
-    const pwd = document.getElementById('signup-password').value;
-    const confirm = document.getElementById('signup-confirm').value;
-    const errorEl = document.getElementById('signup-error');
+    const btn = document.getElementById('signup-btn');
+    const prevText = btn.innerHTML;
+    btn.innerHTML = '<span class="btn-text" style="align-items: center"><strong>Processing...</strong></span>';
+    btn.disabled = true;
 
-    if (pwd !== confirm) {
-        errorEl.textContent = 'Passwords do not match.';
-        return;
+    try {
+        const username = document.getElementById('signup-username').value.trim();
+        const email = document.getElementById('signup-email').value.trim();
+        const pwd = document.getElementById('signup-password').value;
+        const confirm = document.getElementById('signup-confirm').value;
+        const errorEl = document.getElementById('signup-error');
+
+        if (pwd !== confirm) {
+            errorEl.textContent = 'Passwords do not match.';
+            return;
+        }
+
+        const users = getAuthUsers();
+        if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+            errorEl.textContent = 'Account already exists for this email.';
+            return;
+        }
+        if (users.find(u => u.username && u.username.toLowerCase() === username.toLowerCase())) {
+            errorEl.textContent = 'This username is already taken.';
+            return;
+        }
+
+        const newUser = { username, email, password: pwd };
+        
+        const res = await fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'users', action: 'send_verification', data: newUser })
+        });
+        
+        const resData = await res.json();
+        
+        if (res.ok) {
+            pendingSignupEmail = email;
+            switchAuthView('verify');
+        } else {
+            errorEl.textContent = resData.error || 'Failed to send verification code.';
+        }
+    } finally {
+        if(btn) {
+            btn.innerHTML = prevText;
+            btn.disabled = false;
+        }
     }
+}
 
-    const users = getAuthUsers();
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-        errorEl.textContent = 'Account already exists for this email.';
-        return;
+async function handleVerify(e) {
+    e.preventDefault();
+    if(!pendingSignupEmail) return;
+    
+    const code = document.getElementById('verify-code').value.trim();
+    const errorEl = document.getElementById('verify-error');
+    const btn = document.getElementById('verify-btn');
+    const prevText = btn.innerHTML;
+    
+    btn.innerHTML = '<span class="btn-text" style="align-items: center"><strong>Verifying...</strong></span>';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'users', action: 'verify_code', data: { email: pendingSignupEmail, code } })
+        });
+        
+        const resData = await res.json();
+        
+        if (res.ok) {
+            await fetchInitialDB();
+
+            localStorage.setItem('ttt_currentUser', pendingSignupEmail);
+            currentUser = pendingSignupEmail;
+
+            authScreen.classList.remove('active');
+            menuScreen.classList.add('active');
+            showAdminButton();
+            pendingSignupEmail = null;
+        } else {
+            errorEl.textContent = resData.error || 'Invalid verification code.';
+        }
+    } finally {
+        if(btn) {
+            btn.innerHTML = prevText;
+            btn.disabled = false;
+        }
     }
-    if (users.find(u => u.username === username)) {
-        errorEl.textContent = 'This username is already taken.';
-        return;
-    }
-
-    const newUser = { username, email, password: pwd };
-    saveAuthUsers(newUser, 'signup');
-
-    // Auto login
-    localStorage.setItem('ttt_currentUser', email);
-    currentUser = email;
-
-    authScreen.classList.remove('active');
-    menuScreen.classList.add('active');
-    showAdminButton();
 }
 
 function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('login-email').value.trim();
+    const identifier = document.getElementById('login-identifier').value.trim().toLowerCase();
     const pwd = document.getElementById('login-password').value;
     const errorEl = document.getElementById('login-error');
 
     const users = getAuthUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pwd);
+    const user = users.find(u => {
+        const match = u.email.toLowerCase() === identifier || (u.username && u.username.toLowerCase() === identifier);
+        return match && u.password === pwd;
+    });
 
     if (user) {
-        localStorage.setItem('ttt_currentUser', email);
-        currentUser = email;
+        if (user.isVerified === false) {
+            errorEl.textContent = 'Account not verified. Please complete sign up.';
+            return;
+        }
+
+        localStorage.setItem('ttt_currentUser', user.email);
+        currentUser = user.email;
         authScreen.classList.remove('active');
         menuScreen.classList.add('active');
         showAdminButton();
     } else {
-        errorEl.textContent = 'Invalid email or password.';
+        errorEl.textContent = 'Invalid credentials.';
     }
 }
 
