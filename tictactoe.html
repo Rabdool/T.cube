@@ -168,29 +168,7 @@
                     onclick="switchAuthView('login')">Log In</a></p>
         </div>
 
-        <!-- Verification Form -->
-        <div id="auth-verify" class="card auth-card" style="display: none;">
-            <div class="logo-container">
-                <img src="logo.png" alt="T.cube Logo" class="game-logo">
-            </div>
-            <h1 class="title">Verify Email</h1>
-            <p class="subtitle">Enter the 6-digit code sent to your email.</p>
-            <form id="form-verify" onsubmit="handleVerify(event)">
-                <div class="form-group">
-                    <label>Verification Code</label>
-                    <input type="text" id="verify-code" required placeholder="123456" maxlength="6" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
-                </div>
-                <div id="verify-error" class="auth-error"></div>
-                <button type="submit" class="btn btn-primary btn-full" id="verify-btn">
-                    <span class="btn-text" style="align-items: center"><strong>Verify</strong></span>
-                </button>
-            </form>
-            <div id="verify-resend-container" style="text-align: center; margin-top: 15px; margin-bottom: 5px;">
-                <span id="resend-timer" style="font-size: 0.9rem; color: var(--text-muted); display: block;">Wait 60s to resend code</span>
-                <a href="#" id="resend-link" class="auth-link" style="display: none;" onclick="handleResend(event)">Resend Verification Code</a>
-            </div>
-            <p class="auth-footer"><a href="#" class="auth-link" onclick="switchAuthView('signup')">← Back to Sign Up</a></p>
-        </div>
+
 
         <!-- Forgot Password Form -->
         <div id="auth-forgot" class="card auth-card" style="display: none;">

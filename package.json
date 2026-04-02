@@ -6,7 +6,6 @@
     "start": "echo 'Vercel Static with API Runtime'"
   },
   "dependencies": {
-    "mongodb": "^7.1.1",
-    "resend": "^6.10.0"
+    "mongodb": "^7.1.1"
   }
 }

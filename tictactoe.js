@@ -101,7 +101,7 @@ const authScreen = document.getElementById('auth-screen');
 const authLogin = document.getElementById('auth-login');
 const authSignup = document.getElementById('auth-signup');
 const authForgot = document.getElementById('auth-forgot');
-const authVerify = document.getElementById('auth-verify');
+
 const menuScreen = document.getElementById('menu-screen');
 const diffScreen = document.getElementById('difficulty-screen');
 const gameScreen = document.getElementById('game-screen');
@@ -898,18 +898,15 @@ function switchAuthView(view) {
     authLogin.style.display = 'none';
     authSignup.style.display = 'none';
     authForgot.style.display = 'none';
-    if(authVerify) authVerify.style.display = 'none';
 
     // Clear forms/errors
     document.getElementById('form-login').reset();
     document.getElementById('form-signup').reset();
     document.getElementById('form-forgot').reset();
-    if(document.getElementById('form-verify')) document.getElementById('form-verify').reset();
     
     document.getElementById('login-error').textContent = '';
     document.getElementById('signup-error').textContent = '';
     document.getElementById('forgot-success').textContent = '';
-    if(document.getElementById('verify-error')) document.getElementById('verify-error').textContent = '';
 
     // Reset password strength UI
     document.getElementById('strength-fill').style.width = '0%';
@@ -918,75 +915,9 @@ function switchAuthView(view) {
     if (view === 'login') authLogin.style.display = 'block';
     if (view === 'signup') authSignup.style.display = 'block';
     if (view === 'forgot') authForgot.style.display = 'block';
-    if (view === 'verify' && authVerify) {
-        authVerify.style.display = 'block';
-        startResendTimer();
-    }
 }
 
-let resendTimerInterval = null;
 
-function startResendTimer() {
-    const timerSpan = document.getElementById('resend-timer');
-    const resendLink = document.getElementById('resend-link');
-    
-    if(!timerSpan || !resendLink) return;
-    
-    if (resendTimerInterval) clearInterval(resendTimerInterval);
-    
-    let timeLeft = 60;
-    resendLink.style.display = 'none';
-    timerSpan.style.display = 'block';
-    
-    timerSpan.textContent = `Wait ${timeLeft}s to resend code`;
-    
-    resendTimerInterval = setInterval(() => {
-        timeLeft--;
-        if (timeLeft <= 0) {
-            clearInterval(resendTimerInterval);
-            timerSpan.style.display = 'none';
-            resendLink.style.display = 'inline-block';
-        } else {
-            timerSpan.textContent = `Wait ${timeLeft}s to resend code`;
-        }
-    }, 1000);
-}
-
-async function handleResend(e) {
-    if(e) e.preventDefault();
-    if (!pendingSignupEmail) return;
-    
-    const resendLink = document.getElementById('resend-link');
-    resendLink.style.display = 'none';
-    
-    const errorEl = document.getElementById('verify-error');
-    errorEl.style.color = '#fff';
-    errorEl.textContent = 'Resending code...';
-    
-    try {
-        const res = await fetch('/api/db', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'users', action: 'resend_verification', data: { email: pendingSignupEmail } })
-        });
-        const resData = await res.json();
-        
-        if (res.ok) {
-            errorEl.style.color = '#6abf69';
-            errorEl.textContent = 'Verification code resent successfully!';
-            setTimeout(() => { errorEl.textContent = ''; errorEl.style.color = ''; }, 4000);
-            startResendTimer();
-        } else {
-            errorEl.style.color = '';
-            errorEl.textContent = resData.error || 'Failed to resend code.';
-            resendLink.style.display = 'inline-block';
-        }
-    } catch (err) {
-        errorEl.style.color = '';
-        errorEl.textContent = 'Network error. Try again.';
-        resendLink.style.display = 'inline-block';
-    }
-}
 
 function togglePasswordVisibility(inputId, btn) {
     const input = document.getElementById(inputId);
@@ -1040,8 +971,6 @@ function checkPasswordStrength(password) {
     }
 }
 
-let pendingSignupEmail = null;
-
 async function handleSignup(e) {
     e.preventDefault();
     const btn = document.getElementById('signup-btn');
@@ -1076,59 +1005,20 @@ async function handleSignup(e) {
         const res = await fetch('/api/db', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'users', action: 'send_verification', data: newUser })
-        });
-        
-        const resData = await res.json();
-        
-        if (res.ok) {
-            pendingSignupEmail = email;
-            switchAuthView('verify');
-        } else {
-            errorEl.textContent = resData.error || 'Failed to send verification code.';
-        }
-    } finally {
-        if(btn) {
-            btn.innerHTML = prevText;
-            btn.disabled = false;
-        }
-    }
-}
-
-async function handleVerify(e) {
-    e.preventDefault();
-    if(!pendingSignupEmail) return;
-    
-    const code = document.getElementById('verify-code').value.trim();
-    const errorEl = document.getElementById('verify-error');
-    errorEl.style.color = ''; // reset color in case it was green
-    const btn = document.getElementById('verify-btn');
-    const prevText = btn.innerHTML;
-    
-    btn.innerHTML = '<span class="btn-text" style="align-items: center"><strong>Verifying...</strong></span>';
-    btn.disabled = true;
-
-    try {
-        const res = await fetch('/api/db', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'users', action: 'verify_code', data: { email: pendingSignupEmail, code } })
+            body: JSON.stringify({ type: 'users', action: 'signup', data: newUser })
         });
         
         const resData = await res.json();
         
         if (res.ok) {
             await fetchInitialDB();
-
-            localStorage.setItem('ttt_currentUser', pendingSignupEmail);
-            currentUser = pendingSignupEmail;
-
+            localStorage.setItem('ttt_currentUser', email);
+            currentUser = email;
             authScreen.classList.remove('active');
             menuScreen.classList.add('active');
             showAdminButton();
-            pendingSignupEmail = null;
         } else {
-            errorEl.textContent = resData.error || 'Invalid verification code.';
+            errorEl.textContent = resData.error || 'Failed to create account.';
         }
     } finally {
         if(btn) {
@@ -1151,11 +1041,6 @@ function handleLogin(e) {
     });
 
     if (user) {
-        if (user.isVerified === false) {
-            errorEl.textContent = 'Account not verified. Please complete sign up.';
-            return;
-        }
-
         localStorage.setItem('ttt_currentUser', user.email);
         currentUser = user.email;
         authScreen.classList.remove('active');
