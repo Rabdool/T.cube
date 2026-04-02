@@ -91,10 +91,12 @@ export default async function handler(req, res) {
                 if (action === 'send_verification') {
                     if (!data.email || !data.username) return res.status(400).json({ error: 'Missing email or username' });
                     const code = Math.floor(100000 + Math.random() * 900000).toString();
+                    const now = Date.now();
+                    const expires = now + 10 * 60 * 1000;
                     
                     await usersCollection.updateOne(
                         { email: data.email },
-                        { $set: { ...data, isVerified: false, verificationCode: code } },
+                        { $set: { ...data, isVerified: false, verificationCode: code, verificationExpires: expires, verificationSentAt: now } },
                         { upsert: true }
                     );
 
@@ -113,6 +115,40 @@ export default async function handler(req, res) {
                     }
                 }
 
+                if (action === 'resend_verification') {
+                    if (!data.email) return res.status(400).json({ error: 'Missing email' });
+                    
+                    const user = await usersCollection.findOne({ email: data.email });
+                    if (!user) return res.status(404).json({ error: 'User not found' });
+                    if (user.isVerified) return res.status(400).json({ error: 'User already verified' });
+                    
+                    const now = Date.now();
+                    if (user.verificationSentAt && now - user.verificationSentAt < 60 * 1000) {
+                        return res.status(429).json({ error: 'Please wait before resending.' });
+                    }
+                    
+                    const code = Math.floor(100000 + Math.random() * 900000).toString();
+                    const expires = now + 10 * 60 * 1000;
+                    
+                    await usersCollection.updateOne(
+                        { email: data.email },
+                        { $set: { verificationCode: code, verificationExpires: expires, verificationSentAt: now } }
+                    );
+
+                    try {
+                        await resend.emails.send({
+                            from: 'T.cube <onboarding@resend.dev>',
+                            to: [data.email],
+                            subject: 'T.cube - Your New Verification Code',
+                            html: `<p>Welcome back! Your new verification code is: <strong>${code}</strong></p>`
+                        });
+                        return res.status(200).json({ success: true });
+                    } catch(err) {
+                        console.error('❌ Resend Error:', err);
+                        return res.status(500).json({ error: 'Failed to resend verification email' });
+                    }
+                }
+
                 if (action === 'verify_code') {
                     const { email, code } = data;
                     if (!email || !code) return res.status(400).json({ error: 'Missing email or code' });
@@ -123,12 +159,15 @@ export default async function handler(req, res) {
                     if (user.verificationCode !== code) {
                         return res.status(400).json({ error: 'Invalid verification code' });
                     }
+                    if (user.verificationExpires && Date.now() > user.verificationExpires) {
+                        return res.status(400).json({ error: 'Code has expired. Please request a new one.' });
+                    }
                     
                     await usersCollection.updateOne(
                         { email: email },
                         { 
                             $set: { isVerified: true },
-                            $unset: { verificationCode: "" }
+                            $unset: { verificationCode: "", verificationExpires: "", verificationSentAt: "" }
                         }
                     );
                     return res.status(200).json({ success: true });

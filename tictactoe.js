@@ -918,7 +918,74 @@ function switchAuthView(view) {
     if (view === 'login') authLogin.style.display = 'block';
     if (view === 'signup') authSignup.style.display = 'block';
     if (view === 'forgot') authForgot.style.display = 'block';
-    if (view === 'verify' && authVerify) authVerify.style.display = 'block';
+    if (view === 'verify' && authVerify) {
+        authVerify.style.display = 'block';
+        startResendTimer();
+    }
+}
+
+let resendTimerInterval = null;
+
+function startResendTimer() {
+    const timerSpan = document.getElementById('resend-timer');
+    const resendLink = document.getElementById('resend-link');
+    
+    if(!timerSpan || !resendLink) return;
+    
+    if (resendTimerInterval) clearInterval(resendTimerInterval);
+    
+    let timeLeft = 60;
+    resendLink.style.display = 'none';
+    timerSpan.style.display = 'block';
+    
+    timerSpan.textContent = `Wait ${timeLeft}s to resend code`;
+    
+    resendTimerInterval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+            clearInterval(resendTimerInterval);
+            timerSpan.style.display = 'none';
+            resendLink.style.display = 'inline-block';
+        } else {
+            timerSpan.textContent = `Wait ${timeLeft}s to resend code`;
+        }
+    }, 1000);
+}
+
+async function handleResend(e) {
+    if(e) e.preventDefault();
+    if (!pendingSignupEmail) return;
+    
+    const resendLink = document.getElementById('resend-link');
+    resendLink.style.display = 'none';
+    
+    const errorEl = document.getElementById('verify-error');
+    errorEl.style.color = '#fff';
+    errorEl.textContent = 'Resending code...';
+    
+    try {
+        const res = await fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'users', action: 'resend_verification', data: { email: pendingSignupEmail } })
+        });
+        const resData = await res.json();
+        
+        if (res.ok) {
+            errorEl.style.color = '#6abf69';
+            errorEl.textContent = 'Verification code resent successfully!';
+            setTimeout(() => { errorEl.textContent = ''; errorEl.style.color = ''; }, 4000);
+            startResendTimer();
+        } else {
+            errorEl.style.color = '';
+            errorEl.textContent = resData.error || 'Failed to resend code.';
+            resendLink.style.display = 'inline-block';
+        }
+    } catch (err) {
+        errorEl.style.color = '';
+        errorEl.textContent = 'Network error. Try again.';
+        resendLink.style.display = 'inline-block';
+    }
 }
 
 function togglePasswordVisibility(inputId, btn) {
@@ -1034,6 +1101,7 @@ async function handleVerify(e) {
     
     const code = document.getElementById('verify-code').value.trim();
     const errorEl = document.getElementById('verify-error');
+    errorEl.style.color = ''; // reset color in case it was green
     const btn = document.getElementById('verify-btn');
     const prevText = btn.innerHTML;
     

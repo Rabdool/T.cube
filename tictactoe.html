@@ -185,6 +185,10 @@
                     <span class="btn-text" style="align-items: center"><strong>Verify</strong></span>
                 </button>
             </form>
+            <div id="verify-resend-container" style="text-align: center; margin-top: 15px; margin-bottom: 5px;">
+                <span id="resend-timer" style="font-size: 0.9rem; color: var(--text-muted); display: block;">Wait 60s to resend code</span>
+                <a href="#" id="resend-link" class="auth-link" style="display: none;" onclick="handleResend(event)">Resend Verification Code</a>
+            </div>
             <p class="auth-footer"><a href="#" class="auth-link" onclick="switchAuthView('signup')">← Back to Sign Up</a></p>
         </div>
 
