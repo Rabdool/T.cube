@@ -326,6 +326,13 @@
             <p class="subtitle" id="online-subtitle">Host or Join a game</p>
             
             <div class="diff-buttons" id="online-options" style="margin-top: 20px; flex: 1;">
+                <button class="btn diff-btn" onclick="autoMatch()" style="--diff-color: #29b6f6;">
+                    <span class="diff-emoji">⚡</span>
+                    <span class="btn-text" style="text-align: left;">
+                        <strong>Auto Match</strong>
+                        <small>Find and play automatically</small>
+                    </span>
+                </button>
                 <button class="btn diff-btn" onclick="hostOnlineGame()" style="--diff-color: #ff7043;">
                     <span class="diff-emoji">🏠</span>
                     <span class="btn-text">
@@ -346,6 +353,11 @@
                 <p>Your Room Code:</p>
                 <h2 id="room-code" style="font-size: 3rem; letter-spacing: 8px; margin: 20px 0; color: var(--primary-color);">...</h2>
                 <p style="font-size: 0.9rem; margin-bottom: 20px; opacity: 0.8;" id="host-status">Generating code...</p>
+            </div>
+
+            <div id="online-automatch-view" style="display: none; text-align: center; flex: 1; align-items: center; justify-content: center; flex-direction: column;">
+                <h2 style="font-size: 2rem; margin: 20px 0; color: var(--primary-color);">🔍 Searching...</h2>
+                <p style="font-size: 0.9rem; margin-bottom: 20px; opacity: 0.8;" id="automatch-status">Finding an available opponent</p>
             </div>
 
             <div id="online-join-view" style="display: none; flex: 1; justify-content: center; flex-direction: column;">

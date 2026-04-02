@@ -646,6 +646,7 @@ function onlineMultiplayer() {
     document.getElementById('online-options').style.display = 'flex';
     document.getElementById('online-host-view').style.display = 'none';
     document.getElementById('online-join-view').style.display = 'none';
+    document.getElementById('online-automatch-view').style.display = 'none';
     
     document.getElementById('join-room-code').value = '';
     document.getElementById('join-status').textContent = '';
@@ -656,6 +657,78 @@ function backToMenuFromOnline() {
     if (conn) { conn.close(); conn = null; }
     document.getElementById('online-screen').classList.remove('active');
     menuScreen.classList.add('active');
+}
+
+async function autoMatch() {
+    document.getElementById('online-options').style.display = 'none';
+    const amView = document.getElementById('online-automatch-view');
+    amView.style.display = 'flex';
+    
+    const statusEl = document.getElementById('automatch-status');
+    statusEl.textContent = 'Connecting to matchmaker...';
+    
+    try {
+        const res = await fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'matchmaking', action: 'auto_match' })
+        });
+        const data = await res.json();
+        
+        if (!data.success) {
+            statusEl.textContent = 'Matchmaking failed: ' + (data.error || 'Unknown error');
+            return;
+        }
+
+        if (data.role === 'host') {
+            statusEl.textContent = 'Waiting for an opponent to join...';
+            onlineRoomId = data.roomCode;
+            peer = new Peer('tcube-' + onlineRoomId);
+            
+            peer.on('open', (id) => {
+                // Wait for connection
+            });
+            
+            peer.on('connection', (connection) => {
+                conn = connection;
+                setupConnection(conn, 'host');
+            });
+
+            peer.on('error', (err) => {
+                statusEl.textContent = 'Peer error: ' + err.type;
+            });
+            
+        } else if (data.role === 'guest') {
+            statusEl.textContent = 'Match found! Connecting...';
+            peer = new Peer();
+            
+            peer.on('open', (id) => {
+                conn = peer.connect('tcube-' + data.roomCode);
+                
+                conn.on('open', () => {
+                    setupConnection(conn, 'guest');
+                });
+                
+                conn.on('error', (err) => {
+                    statusEl.textContent = 'Connection failed: ' + err;
+                    setTimeout(autoMatch, 2000); 
+                });
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'peer-unavailable') {
+                    statusEl.textContent = 'Opponent left. Retrying...';
+                    if (peer) { peer.destroy(); peer = null; }
+                    setTimeout(autoMatch, 1500);
+                } else {
+                    statusEl.textContent = 'Peer error: ' + err.type;
+                }
+            });
+        }
+    } catch (e) {
+        statusEl.textContent = 'Network error. Try again.';
+        console.error(e);
+    }
 }
 
 function generateRoomCode() {

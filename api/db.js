@@ -161,6 +161,40 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: 'Invalid user action' });
             }
 
+            if (type === 'matchmaking') {
+                const matchCollection = db.collection('matchmaking');
+                
+                // Keep the pending collection clean of stale rooms
+                const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+                await matchCollection.deleteMany({ createdAt: { $lt: fiveMinutesAgo } });
+
+                if (action === 'auto_match') {
+                    // Find an existing waiting room
+                    const waitingRoomResult = await matchCollection.findOneAndUpdate(
+                        { status: 'waiting' },
+                        { $set: { status: 'matched' } },
+                        { sort: { createdAt: 1 }, returnDocument: 'before' }
+                    );
+
+                    // MongoDB native driver v6+ often returns the document directly, older ones wrap in {value: ...}
+                    const room = waitingRoomResult?.value || waitingRoomResult;
+
+                    if (room && room.roomCode) {
+                        return res.status(200).json({ success: true, role: 'guest', roomCode: room.roomCode });
+                    } else {
+                        // Generate a new code and set to waiting
+                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                        let code = '';
+                        for (let i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+                        
+                        await matchCollection.insertOne({ roomCode: code, status: 'waiting', createdAt: new Date() });
+                        
+                        return res.status(200).json({ success: true, role: 'host', roomCode: code });
+                    }
+                }
+                return res.status(400).json({ error: 'Invalid matchmaking action' });
+            }
+
             return res.status(400).json({ error: 'Invalid operation type' });
         } else {
             res.setHeader('Allow', ['GET', 'POST']);
