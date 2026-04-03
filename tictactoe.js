@@ -1073,3 +1073,12 @@ function toggleTheme() {
     const isLight = body.classList.contains('light-theme');
     localStorage.setItem('ttt_theme', isLight ? 'light' : 'dark');
 }
+
+// ===== Rules Overlay =====
+function showRules() {
+    document.getElementById('rules-overlay').classList.add('active');
+}
+
+function hideRules() {
+    document.getElementById('rules-overlay').classList.remove('active');
+}

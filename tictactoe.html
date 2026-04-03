@@ -42,7 +42,7 @@
     <!-- Auth Screen -->
     <div id="auth-screen" class="screen active">
         <!-- Login Form -->
-        <div id="auth-login" class="card auth-card">
+        <div id="auth-login" class="card auth-card" style="display: none;">
             <div class="logo-container">
                 <img src="logo.png" alt="T.cube Logo" class="game-logo">
             </div>
@@ -89,7 +89,7 @@
         </div>
 
         <!-- Signup Form -->
-        <div id="auth-signup" class="card auth-card" style="display: none;">
+        <div id="auth-signup" class="card auth-card">
             <div class="logo-container">
                 <img src="logo.png" alt="T.cube Logo" class="game-logo">
             </div>
@@ -277,7 +277,11 @@
                         <small>Play against others online</small>
                     </span>
                 </button>
-                <div style="height: 12px"></div>
+                <button id="btn-rules" class="btn btn-ghost" onclick="showRules()" style="justify-content: center; margin-top: 4px;">
+                    <span class="btn-text">
+                        <strong>📖 How to Play</strong>
+                    </span>
+                </button>
                 <button id="btn-logout" class="btn btn-ghost" onclick="handleLogout()" style="justify-content: center">
                     <span class="btn-text">
                         <strong>Log Out</strong>
@@ -421,6 +425,44 @@
                 <button class="btn btn-primary btn-small" onclick="restartGame()">Play Again</button>
                 <button class="btn btn-ghost btn-small" onclick="goBackToSelection()">Back</button>
                 <button class="btn btn-ghost btn-small" onclick="goToMenu()">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rules Overlay -->
+    <div id="rules-overlay" class="overlay">
+        <div class="card result-card rules-card">
+            <div class="result-icon">📖</div>
+            <h2 class="result-title">How to Play</h2>
+            <div class="rules-content">
+                <div class="rules-section">
+                    <h3>🎯 Objective</h3>
+                    <p>Get three of your marks in a row — horizontally, vertically, or diagonally — before your opponent does.</p>
+                </div>
+                <div class="rules-section">
+                    <h3>🕹️ Gameplay</h3>
+                    <ul>
+                        <li><strong>X</strong> always goes first.</li>
+                        <li>Players take turns placing their mark on an empty cell.</li>
+                        <li>The first player to align 3 marks <strong>wins</strong>.</li>
+                        <li>If all 9 cells are filled with no winner, it's a <strong>draw</strong>.</li>
+                    </ul>
+                </div>
+                <div class="rules-section">
+                    <h3>🏆 Game Modes</h3>
+                    <ul>
+                        <li><strong>Single Player</strong> — Challenge the CPU at 5 difficulty levels. Win games to unlock harder levels!</li>
+                        <li><strong>Two Players</strong> — Play locally with a friend, taking turns on the same device.</li>
+                        <li><strong>Online</strong> — Host or join a room to play against someone online. Or use Auto Match to find an opponent instantly!</li>
+                    </ul>
+                </div>
+                <div class="rules-section">
+                    <h3>🔄 Turn Order</h3>
+                    <p>After each game, the <strong>loser starts next</strong> (gets X). On a draw, the player who moved last goes second next round.</p>
+                </div>
+            </div>
+            <div class="result-buttons" style="margin-top: 1.25rem;">
+                <button class="btn btn-primary btn-small" onclick="hideRules()" style="width: 100%;">Got it!</button>
             </div>
         </div>
     </div>
