@@ -82,24 +82,26 @@
         initTheme();
 
         const currentUser = localStorage.getItem('ttt_currentUser');
+        let dbUsers = [];
 
-        function getAuthUsers() {
-            return JSON.parse(localStorage.getItem('ttt_users') || '[]');
+        async function fetchUsers() {
+            try {
+                const res = await fetch('/api/db');
+                const data = await res.json();
+                if (data.users) dbUsers = data.users;
+            } catch (e) {
+                console.error('Failed to load users', e);
+            }
         }
 
-        function saveAuthUsers(users) {
-            localStorage.setItem('ttt_users', JSON.stringify(users));
-        }
-
-        window.onload = function () {
+        window.onload = async function () {
             if (!currentUser) {
-                // If not logged in, boot back to main menu
                 window.location.href = 'tictactoe.html';
                 return;
             }
 
-            const users = getAuthUsers();
-            const user = users.find(u => u.email === currentUser);
+            await fetchUsers();
+            const user = dbUsers.find(u => u.email === currentUser);
 
             if (user) {
                 document.getElementById('settings-email').value = user.email;
@@ -107,32 +109,39 @@
             }
         };
 
-        function handleUpdateSettings(e) {
+        async function handleUpdateSettings(e) {
             e.preventDefault();
             const newUsername = document.getElementById('settings-username').value.trim();
             const statusEl = document.getElementById('settings-status');
 
-            let users = getAuthUsers();
-            const userIndex = users.findIndex(u => u.email === currentUser);
+            const user = dbUsers.find(u => u.email === currentUser);
+            if (!user) return;
 
-            if (userIndex !== -1) {
-                const taken = users.find(u => u.username === newUsername && u.email !== currentUser);
-                if (taken) {
-                    statusEl.style.color = '#ff6b6b';
-                    statusEl.textContent = 'Username is already taken.';
-                    return;
-                }
+            const taken = dbUsers.find(u => u.username === newUsername && u.email !== currentUser);
+            if (taken) {
+                statusEl.style.color = '#ff6b6b';
+                statusEl.textContent = 'Username is already taken.';
+                return;
+            }
 
-                users[userIndex].username = newUsername;
-                saveAuthUsers(users);
+            user.username = newUsername;
 
+            try {
+                await fetch('/api/db', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'users', action: 'update', data: user })
+                });
                 statusEl.style.color = 'var(--wood-light)';
                 statusEl.textContent = 'Settings saved successfully!';
-
-                setTimeout(() => {
-                    statusEl.textContent = '';
-                }, 3000);
+            } catch (e) {
+                statusEl.style.color = '#ff6b6b';
+                statusEl.textContent = 'Failed to save. Try again.';
             }
+
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 3000);
         }
     </script>
 </body>
