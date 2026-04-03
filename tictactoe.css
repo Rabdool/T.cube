@@ -776,6 +776,61 @@ body:not(.light-theme) .icon-moon {
     }
 }
 
+/* ===== Rules Card ===== */
+.rules-card {
+    max-width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.rules-content {
+    margin-top: 1rem;
+}
+
+.rules-section {
+    margin-bottom: 1.25rem;
+}
+
+.rules-section h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.rules-section p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+}
+
+.rules-section ul {
+    list-style: none;
+    padding: 0;
+}
+
+.rules-section ul li {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    padding: 4px 0 4px 18px;
+    position: relative;
+}
+
+.rules-section ul li::before {
+    content: '•';
+    position: absolute;
+    left: 4px;
+    color: var(--wood-light);
+    font-weight: 700;
+}
+
+.rules-section ul li strong {
+    color: var(--text);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 480px) {
     .card {

@@ -159,12 +159,6 @@ function selectDifficulty(diffId) {
     startGame('1p');
 }
 
-function goToMenu() {
-    gameScreen.classList.remove('active');
-    resultOverlay.classList.remove('active');
-    menuScreen.classList.add('active');
-}
-
 function goBackToSelection() {
     resultOverlay.classList.remove('active');
     gameScreen.classList.remove('active');
@@ -882,10 +876,6 @@ function initAuth() {
 
 function showAdminButton() {
     const ALLOWED_ADMINS = ['abdurrahmanabdulkabir06@gmail.com', 'test-admin-verification@gmail.com'];
-    const users = getAuthUsers();
-    let updated = false;
-
-    // Admin button visibility check (local only, server handles the actual flag)
     const adminBtn = document.getElementById('admin-toggle');
     if (adminBtn && ALLOWED_ADMINS.includes(currentUser)) {
         adminBtn.style.display = 'flex';
@@ -916,7 +906,6 @@ function switchAuthView(view) {
     if (view === 'signup') authSignup.style.display = 'block';
     if (view === 'forgot') authForgot.style.display = 'block';
 }
-
 
 
 function togglePasswordVisibility(inputId, btn) {
@@ -1083,4 +1072,13 @@ function toggleTheme() {
     body.classList.toggle('light-theme');
     const isLight = body.classList.contains('light-theme');
     localStorage.setItem('ttt_theme', isLight ? 'light' : 'dark');
+}
+
+// ===== Rules Overlay =====
+function showRules() {
+    document.getElementById('rules-overlay').classList.add('active');
+}
+
+function hideRules() {
+    document.getElementById('rules-overlay').classList.remove('active');
 }

@@ -65,17 +65,6 @@ function saveWinStats(stats) {
 // ===== Admin Auth Gate =====
 const currentUserEmail = localStorage.getItem('ttt_currentUser');
 
-function ensureAdminExists() {
-    const ALLOWED_ADMINS = ['abdurrahmanabdulkabir06@gmail.com', 'test-admin-verification@gmail.com'];
-    let users = getUsers();
-    if (users.length === 0) return;
-
-    // Local-only flag sync (server handles persistence)
-    users.forEach(u => {
-        u.isAdmin = ALLOWED_ADMINS.includes(u.email);
-    });
-}
-
 function checkAdminAccess() {
     const ALLOWED_ADMINS = ['abdurrahmanabdulkabir06@gmail.com', 'test-admin-verification@gmail.com'];
     
@@ -85,10 +74,13 @@ function checkAdminAccess() {
         return false;
     }
 
-    ensureAdminExists();
-
     const users = getUsers();
     const currentUser = users.find(u => u.email === currentUserEmail);
+
+    // Set admin flag based on allowed list
+    if (currentUser) {
+        currentUser.isAdmin = ALLOWED_ADMINS.includes(currentUser.email);
+    }
 
     if (!currentUser || !currentUser.isAdmin) {
         window.location.href = 'tictactoe.html';
