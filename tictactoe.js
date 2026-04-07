@@ -119,6 +119,8 @@ const labelLeft = document.getElementById('label-left');
 const labelRight = document.getElementById('label-right');
 const diffBadge = document.getElementById('diff-badge');
 const diffButtonsContainer = document.getElementById('diff-buttons');
+const sideLabelHost = document.getElementById('side-label-host');
+const sideLabelGuest = document.getElementById('side-label-guest');
 
 // ===== Difficulty Screen =====
 function renderDiffButtons() {
@@ -205,6 +207,10 @@ function startGame(selectedMode) {
 }
 
 function updateLabels() {
+    // Hide side labels by default, only show in online mode
+    if (sideLabelHost) sideLabelHost.style.display = 'none';
+    if (sideLabelGuest) sideLabelGuest.style.display = 'none';
+
     if (mode === '2p') {
         labelLeft.textContent = `Player 1 (${p1Sign})`;
         labelRight.textContent = `Player 2 (${p2Sign})`;
@@ -212,6 +218,20 @@ function updateLabels() {
         const myName = getMyUsername();
         labelLeft.textContent = `${myName} (${humanSign})`;
         labelRight.textContent = `${opponentUsername} (${cpuSign})`;
+        
+        // Show and update side labels
+        if (sideLabelHost && sideLabelGuest) {
+            sideLabelHost.style.display = 'flex';
+            sideLabelGuest.style.display = 'flex';
+            
+            if (onlineRole === 'host') {
+                sideLabelHost.querySelector('.side-label-name').textContent = myName;
+                sideLabelGuest.querySelector('.side-label-name').textContent = opponentUsername;
+            } else {
+                sideLabelHost.querySelector('.side-label-name').textContent = opponentUsername;
+                sideLabelGuest.querySelector('.side-label-name').textContent = myName;
+            }
+        }
     } else {
         labelLeft.textContent = `You (${humanSign})`;
         labelRight.textContent = `CPU (${cpuSign})`;
@@ -229,6 +249,8 @@ function goToMenu() {
     menuScreen.classList.add('active');
     gameActive = false;
     opponentUsername = 'Opponent';
+    if (sideLabelHost) sideLabelHost.style.display = 'none';
+    if (sideLabelGuest) sideLabelGuest.style.display = 'none';
 }
 
 function restartGame() {

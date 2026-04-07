@@ -1033,3 +1033,83 @@ body.light-theme .auth-link {
 body.light-theme .auth-link:hover {
     color: #6b3a1f;
 }
+
+/* ===== Side Labels for Online Multiplayer ===== */
+.side-label {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none; /* Controlled by JS */
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 30px 12px;
+    border-radius: 50px;
+    z-index: 5;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    animation: sideLabelFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none; /* Don't block clicks */
+}
+
+@keyframes sideLabelFadeIn {
+    from { opacity: 0; transform: translateY(-50%) translateX(var(--slide-dist, 0)) scale(0.9); }
+    to { opacity: 1; transform: translateY(-50%) translateX(0) scale(1); }
+}
+
+.side-label-left {
+    left: 5vw;
+    --slide-dist: -20px;
+}
+
+.side-label-right {
+    right: 5vw;
+    --slide-dist: 20px;
+}
+
+.side-label-tag {
+    font-size: 0.6rem;
+    font-weight: 900;
+    letter-spacing: 2.5px;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    opacity: 0.6;
+}
+
+.side-label-name {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.side-label-left .side-label-name {
+    color: var(--x-color);
+    text-shadow: 0 0 15px rgba(60, 184, 36, 0.2);
+}
+
+.side-label-right .side-label-name {
+    color: var(--o-color);
+    text-shadow: 0 0 15px rgba(212, 54, 44, 0.2);
+}
+
+body.light-theme .side-label {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Hide on mobile/small tablets where space is tight */
+@media (max-width: 1024px) {
+    .side-label {
+        display: none !important;
+    }
+}
