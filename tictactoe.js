@@ -800,9 +800,7 @@ function joinOnlineGame() {
 function setupConnection(connection, role) {
     onlineRole = role;
     
-    // Send my username immediately
-    connection.send({ type: 'init', username: getMyUsername() });
-    
+    // Attach listeners before sending anything
     connection.on('data', (data) => {
         if (data.type === 'init') {
             opponentUsername = data.username;
@@ -819,6 +817,19 @@ function setupConnection(connection, role) {
             restartGameLogic();
         }
     });
+
+    const sendInit = () => {
+        if (connection.open) {
+            connection.send({ type: 'init', username: getMyUsername() });
+        }
+    };
+
+    // If host, the connection might not be open yet
+    if (connection.open) {
+        sendInit();
+    } else {
+        connection.on('open', sendInit);
+    }
     
     connection.on('close', () => {
         alert('Opponent disconnected!');
