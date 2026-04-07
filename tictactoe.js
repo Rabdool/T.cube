@@ -671,7 +671,7 @@ async function autoMatch() {
         const res = await fetch('/api/db', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'matchmaking', action: 'auto_match' })
+            body: JSON.stringify({ type: 'matchmaking', action: 'auto_match', username: getMyUsername() })
         });
         const data = await res.json();
         
@@ -690,6 +690,7 @@ async function autoMatch() {
             });
             
             peer.on('connection', (connection) => {
+                statusEl.textContent = 'Opponent found! Connecting...';
                 conn = connection;
                 setupConnection(conn, 'host');
             });
@@ -699,7 +700,7 @@ async function autoMatch() {
             });
             
         } else if (data.role === 'guest') {
-            statusEl.textContent = 'Match found! Connecting...';
+            statusEl.textContent = `Match found! Playing against ${data.hostName}...`;
             peer = new Peer();
             
             peer.on('open', (id) => {

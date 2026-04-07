@@ -117,6 +117,7 @@ export default async function handler(req, res) {
                 // Keep the pending collection clean of stale rooms
                 const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
                 await matchCollection.deleteMany({ createdAt: { $lt: fiveMinutesAgo } });
+                const { username } = req.body;
 
                 if (action === 'auto_match') {
                     // Find an existing waiting room
@@ -130,14 +131,24 @@ export default async function handler(req, res) {
                     const room = waitingRoomResult?.value || waitingRoomResult;
 
                     if (room && room.roomCode) {
-                        return res.status(200).json({ success: true, role: 'guest', roomCode: room.roomCode });
+                        return res.status(200).json({ 
+                            success: true, 
+                            role: 'guest', 
+                            roomCode: room.roomCode,
+                            hostName: room.hostName || 'Opponent'
+                        });
                     } else {
                         // Generate a new code and set to waiting
                         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
                         let code = '';
                         for (let i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
                         
-                        await matchCollection.insertOne({ roomCode: code, status: 'waiting', createdAt: new Date() });
+                        await matchCollection.insertOne({ 
+                            roomCode: code, 
+                            status: 'waiting', 
+                            hostName: username || 'Opponent',
+                            createdAt: new Date() 
+                        });
                         
                         return res.status(200).json({ success: true, role: 'host', roomCode: code });
                     }
