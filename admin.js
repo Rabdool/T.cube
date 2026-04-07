@@ -193,10 +193,10 @@ function refreshDashboard() {
                         <strong>${escapeHtml(u.username || '—')}</strong>
                     </div>
                 </td>
-                <td>
+                <td class="col-email">
                     ${escapeHtml(u.email)}
                 </td>
-                <td><span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">${u.isAdmin ? '🛡️ Admin' : 'User'}</span></td>
+                <td class="col-role"><span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">${u.isAdmin ? '🛡️ Admin' : 'User'}</span></td>
             </tr>
         `).join('');
     }
@@ -244,11 +244,11 @@ function refreshUsersTable() {
                         <strong>${escapeHtml(u.username || '—')}</strong>
                     </div>
                 </td>
-                <td>
+                <td class="col-email">
                     ${escapeHtml(u.email)}
                 </td>
-                <td><span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">${u.isAdmin ? '🛡️ Admin' : 'User'}</span></td>
-                <td><strong>${played}</strong></td>
+                <td class="col-role"><span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">${u.isAdmin ? '🛡️ Admin' : 'User'}</span></td>
+                <td class="col-played"><strong>${played}</strong></td>
                 <td>
                     <span style="color: var(--success); font-weight:600;">${stats.wins}</span> /
                     <span style="color: var(--text-muted); font-weight:600;">${stats.ties}</span> /

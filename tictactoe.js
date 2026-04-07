@@ -591,18 +591,26 @@ function checkWin(sign) {
 
 function updateUserStats(result) {
     if (!currentUser) return;
-    let users = getAuthUsers();
-    let idx = users.findIndex(u => u.email === currentUser);
+    
+    let idx = dbUsers.findIndex(u => u.email === currentUser);
     if (idx !== -1) {
-        if (!users[idx].stats) {
-            users[idx].stats = { wins: 0, losses: 0, ties: 0 };
+        if (!dbUsers[idx].stats) {
+            dbUsers[idx].stats = { wins: 0, losses: 0, ties: 0 };
         }
-        if (result === 'win') users[idx].stats.wins++;
-        else if (result === 'loss') users[idx].stats.losses++;
-        else if (result === 'tie') users[idx].stats.ties++;
+        if (result === 'win') dbUsers[idx].stats.wins++;
+        else if (result === 'loss') dbUsers[idx].stats.losses++;
+        else if (result === 'tie') dbUsers[idx].stats.ties++;
         
-        // Sync ONLY this user
-        saveAuthUsers(users[idx], 'update');
+        // Sync to backend using /api/db
+        fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                type: 'users',
+                action: 'update',
+                data: dbUsers[idx]
+            })
+        }).catch(e => console.error('Stats sync failed', e));
     }
 }
 
