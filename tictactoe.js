@@ -122,6 +122,10 @@ const diffButtonsContainer = document.getElementById('diff-buttons');
 const sideLabelHost = document.getElementById('side-label-host');
 const sideLabelGuest = document.getElementById('side-label-guest');
 
+// ===== Leaderboard Screen =====
+const leaderboardScreen = document.getElementById('leaderboard-screen');
+const leaderboardList = document.getElementById('leaderboard-list');
+
 // ===== Difficulty Screen =====
 function renderDiffButtons() {
     diffButtonsContainer.innerHTML = '';
@@ -144,6 +148,62 @@ function renderDiffButtons() {
         btn.style.setProperty('--diff-color', d.color);
         diffButtonsContainer.appendChild(btn);
     });
+}
+
+async function showLeaderboard() {
+    menuScreen.classList.remove('active');
+    leaderboardScreen.classList.add('active');
+    leaderboardList.innerHTML = '<div style="text-align: center; padding: 40px; opacity: 0.6;">Loading rankings...</div>';
+    
+    // Refresh data to get latest wins
+    await fetchInitialDB();
+    
+    renderLeaderboard();
+}
+
+function renderLeaderboard() {
+    leaderboardList.innerHTML = '';
+    
+    // Sort users by wins, then losses (descending wins)
+    const sortedUsers = [...dbUsers].filter(u => u.stats).sort((a, b) => {
+        const aWins = a.stats?.wins || 0;
+        const bWins = b.stats?.wins || 0;
+        return bWins - aWins;
+    }).slice(0, 10); // Top 10
+
+    if (sortedUsers.length === 0) {
+        leaderboardList.innerHTML = '<div style="text-align: center; padding: 40px; opacity: 0.6;">No players yet.</div>';
+        return;
+    }
+
+    sortedUsers.forEach((user, index) => {
+        const rank = index + 1;
+        const wins = user.stats?.wins || 0;
+        const losses = user.stats?.losses || 0;
+        const ties = user.stats?.ties || 0;
+        
+        const item = document.createElement('div');
+        item.className = `leaderboard-item rank-${rank}`;
+        item.style.animationDelay = `${index * 0.05}s`;
+        
+        item.innerHTML = `
+            <div class="rank-badge">${rank}</div>
+            <div class="player-info">
+                <div class="player-name">${user.username || 'Anonymous'}</div>
+                <div class="player-stats">${wins}W - ${losses}L - ${ties}T</div>
+            </div>
+            <div class="player-wins">
+                <span class="win-count">${wins}</span>
+                <span class="win-label">Wins</span>
+            </div>
+        `;
+        leaderboardList.appendChild(item);
+    });
+}
+
+function backFromLeaderboard() {
+    leaderboardScreen.classList.remove('active');
+    menuScreen.classList.add('active');
 }
 
 function showDifficulty() {

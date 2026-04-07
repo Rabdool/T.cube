@@ -1034,6 +1034,130 @@ body.light-theme .auth-link:hover {
     color: #6b3a1f;
 }
 
+/* ===== Leaderboard Screen ===== */
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0;
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 5px 10px 5px 5px;
+}
+
+.leaderboard-list::-webkit-scrollbar {
+    width: 6px;
+}
+.leaderboard-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+}
+.leaderboard-list::-webkit-scrollbar-thumb {
+    background: var(--wood-border);
+    border-radius: 10px;
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 14px 20px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 14px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    animation: rankItemIn 0.5s ease-out backwards;
+}
+
+@keyframes rankItemIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.leaderboard-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateX(6px);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.rank-badge {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 900;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.leaderboard-item.rank-1 .rank-badge { 
+    background: linear-gradient(135deg, #ffd700, #daa520); 
+    color: #4a2812; 
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+}
+.leaderboard-item.rank-2 .rank-badge { 
+    background: linear-gradient(135deg, #e0e0e0, #a0a0a0); 
+    color: #333; 
+}
+.leaderboard-item.rank-3 .rank-badge { 
+    background: linear-gradient(135deg, #f4a460, #a0522d); 
+    color: #fff; 
+}
+
+.player-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.player-name {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text);
+}
+
+.player-stats {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.player-wins {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.win-count {
+    font-weight: 900;
+    font-size: 1.4rem;
+    color: var(--x-color);
+    line-height: 1;
+}
+
+.win-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    font-weight: 800;
+    opacity: 0.6;
+    margin-top: 2px;
+}
+
+body.light-theme .leaderboard-item {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+body.light-theme .rank-badge:not([class*="rank-"]) {
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--text);
+}
+
 /* ===== Side Labels for Online Multiplayer ===== */
 .side-label {
     position: fixed;

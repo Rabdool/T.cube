@@ -259,7 +259,6 @@
                         <strong>Two Players</strong>
                         <small>Play with a friend</small>
                     </span>
-                </button>
                 <button id="btn-online" class="btn btn-online" onclick="onlineMultiplayer()">
                     <span class="btn-icon btn-icon-svg">
                         <svg viewBox="0 0 40 40" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -275,6 +274,13 @@
                     <span class="btn-text">
                         <strong>Online Multiplayer</strong>
                         <small>Play against others online</small>
+                    </span>
+                </button>
+                <button id="btn-leaderboard" class="btn btn-secondary" onclick="showLeaderboard()" style="--wood-tile: #ffd700; --wood-tile-dark: #c5a010;">
+                    <span class="diff-emoji" style="font-size: 1.8rem; flex-shrink: 0; width: 44px; display: flex; align-items: center; justify-content: center;">🏆</span>
+                    <span class="btn-text">
+                        <strong>Leaderboard</strong>
+                        <small>See top players rankings</small>
                     </span>
                 </button>
                 <button id="btn-rules" class="btn btn-ghost" onclick="showRules()" style="justify-content: center; margin-top: 4px;">
@@ -356,6 +362,21 @@
             </div>
 
             <button class="btn btn-ghost btn-small btn-back-menu" onclick="backToMenuFromOnline()" style="margin-top: auto;">← Back</button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Screen -->
+    <div id="leaderboard-screen" class="screen">
+        <div class="card leaderboard-card" style="min-height: 500px; display: flex; flex-direction: column; max-width: 480px;">
+            <h1 class="title title-sm">Top Players</h1>
+            <p class="subtitle">Global Rankings by Wins</p>
+            
+            <div id="leaderboard-list" class="leaderboard-list">
+                <!-- Sorted users appear here -->
+                <div style="text-align: center; padding: 40px; opacity: 0.6;">Loading rankings...</div>
+            </div>
+
+            <button class="btn btn-ghost btn-small btn-back-menu" onclick="backFromLeaderboard()" style="margin-top: auto;">← Back</button>
         </div>
     </div>
 
