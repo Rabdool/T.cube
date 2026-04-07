@@ -592,11 +592,17 @@ function checkWin(sign) {
 function updateUserStats(result) {
     if (!currentUser) return;
     
-    let idx = dbUsers.findIndex(u => u.email === currentUser);
+    let idx = dbUsers.findIndex(u => u.email.toLowerCase() === currentUser.toLowerCase());
     if (idx !== -1) {
         if (!dbUsers[idx].stats) {
             dbUsers[idx].stats = { wins: 0, losses: 0, ties: 0 };
         }
+        
+        // Ensure properties exist
+        dbUsers[idx].stats.wins = dbUsers[idx].stats.wins || 0;
+        dbUsers[idx].stats.losses = dbUsers[idx].stats.losses || 0;
+        dbUsers[idx].stats.ties = dbUsers[idx].stats.ties || 0;
+        
         if (result === 'win') dbUsers[idx].stats.wins++;
         else if (result === 'loss') dbUsers[idx].stats.losses++;
         else if (result === 'tie') dbUsers[idx].stats.ties++;

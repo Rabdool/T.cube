@@ -235,7 +235,10 @@ function refreshUsersTable() {
         emptyState.style.display = 'none';
         tbody.innerHTML = filtered.map(u => {
             const stats = u.stats || { wins: 0, losses: 0, ties: 0 };
-            const played = stats.wins + stats.losses + stats.ties;
+            const wins = stats.wins || 0;
+            const ties = stats.ties || 0;
+            const losses = stats.losses || 0;
+            const played = wins + ties + losses;
             return `
             <tr onclick="if(!event.target.closest('button')) openStatsModal('${escapeAttr(u.email)}')">
                 <td>
@@ -250,9 +253,9 @@ function refreshUsersTable() {
                 <td class="col-role"><span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">${u.isAdmin ? '🛡️ Admin' : 'User'}</span></td>
                 <td class="col-played"><strong>${played}</strong></td>
                 <td>
-                    <span style="color: var(--success); font-weight:600;">${stats.wins}</span> /
-                    <span style="color: var(--text-muted); font-weight:600;">${stats.ties}</span> /
-                    <span style="color: var(--danger); font-weight:600;">${stats.losses}</span>
+                    <span style="color: var(--success); font-weight:600;">${wins}</span> /
+                    <span style="color: var(--text-muted); font-weight:600;">${ties}</span> /
+                    <span style="color: var(--danger); font-weight:600;">${losses}</span>
                 </td>
                 <td>
                     <div class="action-btns">
@@ -312,15 +315,18 @@ function openStatsModal(email) {
     if (!user) return;
 
     const stats = user.stats || { wins: 0, losses: 0, ties: 0 };
-    const total = stats.wins + stats.losses + stats.ties;
-    const wr = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
+    const wins = stats.wins || 0;
+    const ties = stats.ties || 0;
+    const losses = stats.losses || 0;
+    const total = wins + ties + losses;
+    const wr = total > 0 ? Math.round((wins / total) * 100) : 0;
 
     document.getElementById('stats-avatar').textContent = (user.username || user.email || '?')[0].toUpperCase();
     document.getElementById('stats-title').textContent = user.username || 'Anonymous';
     document.getElementById('stats-email').textContent = user.email;
-    document.getElementById('stats-wins').textContent = stats.wins;
-    document.getElementById('stats-ties').textContent = stats.ties;
-    document.getElementById('stats-losses').textContent = stats.losses;
+    document.getElementById('stats-wins').textContent = wins;
+    document.getElementById('stats-ties').textContent = ties;
+    document.getElementById('stats-losses').textContent = losses;
     document.getElementById('stats-winrate').textContent = `${wr}%`;
     document.getElementById('stats-winrate-bar').style.width = `${wr}%`;
     document.getElementById('stats-total-played').textContent = `Total games played: ${total}`;
