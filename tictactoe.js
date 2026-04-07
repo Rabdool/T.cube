@@ -81,6 +81,8 @@ let peer = null;
 let conn = null;
 let onlineRole = null; // 'host' or 'guest'
 let onlineRoomId = null;
+let opponentUsername = 'Opponent';
+
 
 // Auth State
 let currentUser = null;
@@ -207,8 +209,9 @@ function updateLabels() {
         labelLeft.textContent = `Player 1 (${p1Sign})`;
         labelRight.textContent = `Player 2 (${p2Sign})`;
     } else if (mode === 'online') {
-        labelLeft.textContent = `You (${humanSign})`;
-        labelRight.textContent = `Opponent (${cpuSign})`;
+        const myName = getMyUsername();
+        labelLeft.textContent = `${myName} (${humanSign})`;
+        labelRight.textContent = `${opponentUsername} (${cpuSign})`;
     } else {
         labelLeft.textContent = `You (${humanSign})`;
         labelRight.textContent = `CPU (${cpuSign})`;
@@ -225,6 +228,7 @@ function goToMenu() {
     if (onlineScreen) onlineScreen.classList.remove('active');
     menuScreen.classList.add('active');
     gameActive = false;
+    opponentUsername = 'Opponent';
 }
 
 function restartGame() {
@@ -311,11 +315,12 @@ function updateStatus() {
         statusText.textContent = `${playerName}'s turn (${currentTurn})`;
         statusText.style.color = currentTurn === 'O' ? 'var(--o-color)' : 'var(--x-color)';
     } else if (mode === 'online') {
+        const myName = getMyUsername();
         if (currentTurn === humanSign) {
-            statusText.textContent = `Your turn (${humanSign})`;
+            statusText.textContent = `${myName}'s turn (${humanSign})`;
             statusText.style.color = humanSign === 'O' ? 'var(--o-color)' : 'var(--x-color)';
         } else {
-            statusText.textContent = `Opponent's turn (${cpuSign})`;
+            statusText.textContent = `${opponentUsername}'s turn (${cpuSign})`;
             statusText.style.color = cpuSign === 'O' ? 'var(--o-color)' : 'var(--x-color)';
         }
     } else {
@@ -555,20 +560,21 @@ function endGame(winnerSign) {
                 statusText.textContent = `${playerName} wins!`;
             } else if (mode === 'online') {
                 const humanWon = (winnerSign === humanSign);
+                const myName = getMyUsername();
                 if (humanWon) {
                     scores.p1++; // Human is always p1 in layout
                     updateUserStats('win');
                     resultIcon.textContent = '🎉';
                     resultTitle.textContent = 'You Won!';
                     resultSubtitle.textContent = 'Great game!';
-                    statusText.textContent = 'You won!';
+                    statusText.textContent = `${myName} won!`;
                 } else {
                     scores.p2++; // Opponent is always p2
                     updateUserStats('loss');
                     resultIcon.textContent = '😞';
-                    resultTitle.textContent = 'Opponent Wins!';
+                    resultTitle.textContent = `${opponentUsername} Wins!`;
                     resultSubtitle.textContent = 'Well played by them.';
-                    statusText.textContent = 'Opponent wins!';
+                    statusText.textContent = `${opponentUsername} wins!`;
                 }
             } else {
                 const humanWon = (winnerSign === humanSign);
@@ -794,8 +800,15 @@ function joinOnlineGame() {
 function setupConnection(connection, role) {
     onlineRole = role;
     
+    // Send my username immediately
+    connection.send({ type: 'init', username: getMyUsername() });
+    
     connection.on('data', (data) => {
-        if (data.type === 'move') {
+        if (data.type === 'init') {
+            opponentUsername = data.username;
+            updateLabels();
+            updateStatus();
+        } else if (data.type === 'move') {
             placeMove(data.index, data.sign);
             const winner = checkWin(data.sign);
             if (winner) { endGame(data.sign); return; }
@@ -838,6 +851,12 @@ function startOnlineGame() {
     document.getElementById('online-screen').classList.remove('active');
     gameScreen.classList.add('active');
     resetBoard();
+}
+
+function getMyUsername() {
+    if (!currentUser) return 'You';
+    const userObj = dbUsers.find(u => u.email === currentUser);
+    return userObj ? (userObj.username || userObj.email.split('@')[0]) : 'You';
 }
 
 // ===== Auth & Users (Vercel KV Backend) =====
