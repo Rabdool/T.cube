@@ -157,6 +157,23 @@ function refreshDashboard() {
         }
     }
     document.getElementById('stat-top-difficulty').textContent = topDiff;
+ 
+    // Global Player Performance Totals
+    let totalPlayerWins = 0;
+    let totalPlayerLosses = 0;
+    let totalPlayerTies = 0;
+    
+    users.forEach(u => {
+        if (u.stats) {
+            totalPlayerWins += (u.stats.wins || 0);
+            totalPlayerLosses += (u.stats.losses || 0);
+            totalPlayerTies += (u.stats.ties || 0);
+        }
+    });
+    
+    document.getElementById('stat-global-wins').textContent = totalPlayerWins.toLocaleString();
+    document.getElementById('stat-global-losses').textContent = totalPlayerLosses.toLocaleString();
+    document.getElementById('stat-global-ties').textContent = totalPlayerTies.toLocaleString();
 
     // Recent users (last 5)
     const recentBody = document.getElementById('recent-users-body');
@@ -220,7 +237,7 @@ function refreshUsersTable() {
             const stats = u.stats || { wins: 0, losses: 0, ties: 0 };
             const played = stats.wins + stats.losses + stats.ties;
             return `
-            <tr>
+            <tr onclick="if(!event.target.closest('button')) openStatsModal('${escapeAttr(u.email)}')">
                 <td>
                     <div class="user-cell">
                         <div class="avatar-sm">${(u.username || u.email || '?')[0].toUpperCase()}</div>
@@ -239,6 +256,14 @@ function refreshUsersTable() {
                 </td>
                 <td>
                     <div class="action-btns">
+                        <button class="btn-action info" title="View Stats" onclick="openStatsModal('${escapeAttr(u.email)}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 20V10"></path>
+                                <path d="M12 20V4"></path>
+                                <path d="M6 20v-6"></path>
+                            </svg>
+                        </button>
                         <button class="btn-action" title="Edit" onclick="openEditModal('${escapeAttr(u.email)}')">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -278,6 +303,33 @@ function openEditModal(email) {
 
 function closeModal() {
     document.getElementById('edit-modal').classList.remove('active');
+}
+
+// ===== User Stats Modal =====
+function openStatsModal(email) {
+    const users = getUsers();
+    const user = users.find(u => u.email === email);
+    if (!user) return;
+
+    const stats = user.stats || { wins: 0, losses: 0, ties: 0 };
+    const total = stats.wins + stats.losses + stats.ties;
+    const wr = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
+
+    document.getElementById('stats-avatar').textContent = (user.username || user.email || '?')[0].toUpperCase();
+    document.getElementById('stats-title').textContent = user.username || 'Anonymous';
+    document.getElementById('stats-email').textContent = user.email;
+    document.getElementById('stats-wins').textContent = stats.wins;
+    document.getElementById('stats-ties').textContent = stats.ties;
+    document.getElementById('stats-losses').textContent = stats.losses;
+    document.getElementById('stats-winrate').textContent = `${wr}%`;
+    document.getElementById('stats-winrate-bar').style.width = `${wr}%`;
+    document.getElementById('stats-total-played').textContent = `Total games played: ${total}`;
+
+    document.getElementById('user-stats-modal').classList.add('active');
+}
+
+function closeStatsModal() {
+    document.getElementById('user-stats-modal').classList.remove('active');
 }
 
 function saveUserEdit() {

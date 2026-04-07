@@ -514,6 +514,7 @@ body.light-theme .page-title {
 
 .data-table tbody tr {
     transition: background var(--transition);
+    cursor: pointer;
 }
 
 .data-table tbody tr:nth-child(even) {
@@ -614,6 +615,12 @@ body.light-theme .badge-user {
     color: var(--danger);
     background: var(--danger-glow);
     border-color: rgba(229, 57, 53, 0.3);
+}
+
+.btn-action.info:hover {
+    color: var(--info);
+    background: var(--info-glow);
+    border-color: rgba(90, 159, 212, 0.3);
 }
 
 .btn-action svg {

@@ -140,6 +140,33 @@
                 </div>
             </div>
 
+            <!-- Global Player Performance -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        Global Player Performance
+                    </div>
+                </div>
+                <div class="stats-grid" style="margin-bottom: 0;">
+                    <div class="stat-card" style="box-shadow: none; border-color: rgba(255,255,255,0.05); background: rgba(0,0,0,0.1);">
+                        <div class="stat-card-value" style="color: var(--success); font-size: 1.5rem;" id="stat-global-wins">0</div>
+                        <div class="stat-card-label" style="font-size: 0.65rem;">Total Player Wins</div>
+                    </div>
+                    <div class="stat-card" style="box-shadow: none; border-color: rgba(255,255,255,0.05); background: rgba(0,0,0,0.1);">
+                        <div class="stat-card-value" style="color: var(--text-muted); font-size: 1.5rem;" id="stat-global-ties">0</div>
+                        <div class="stat-card-label" style="font-size: 0.65rem;">Total Player Ties</div>
+                    </div>
+                    <div class="stat-card" style="box-shadow: none; border-color: rgba(255,255,255,0.05); background: rgba(0,0,0,0.1);">
+                        <div class="stat-card-value" style="color: var(--danger); font-size: 1.5rem;" id="stat-global-losses">0</div>
+                        <div class="stat-card-label" style="font-size: 0.65rem;">Total Player Losses</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Recent Users Panel -->
             <div class="panel">
                 <div class="panel-header">
@@ -364,12 +391,56 @@
 
     <!-- Confirm Modal -->
     <div class="modal-overlay" id="confirm-modal">
+        <!-- existing confirm modal content -->
         <div class="modal">
             <h2 class="modal-title" id="confirm-title">Confirm</h2>
             <p style="color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.5;" id="confirm-message">Are you sure?</p>
             <div class="modal-actions">
                 <button class="btn btn-ghost" onclick="closeConfirmModal()">Cancel</button>
                 <button class="btn btn-danger" id="confirm-action-btn" onclick="">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Stats Modal -->
+    <div class="modal-overlay" id="user-stats-modal">
+        <div class="modal" style="max-width: 480px;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 1.5rem;">
+                <div class="user-avatar" id="stats-avatar" style="width: 60px; height: 60px; font-size: 1.5rem;">?</div>
+                <div style="flex: 1;">
+                    <h2 class="modal-title" id="stats-title" style="margin-bottom: 2px;">User Stats</h2>
+                    <p id="stats-email" style="font-size: 0.85rem; color: var(--text-muted);"></p>
+                </div>
+            </div>
+            
+            <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem;">
+                <div class="stat-card" style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.1); border-color: rgba(255,255,255,0.05); box-shadow: none;">
+                    <div class="stat-card-value" id="stats-wins" style="font-size: 1.4rem; color: var(--success);">0</div>
+                    <div class="stat-card-label" style="font-size: 0.6rem;">Wins</div>
+                </div>
+                <div class="stat-card" style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.1); border-color: rgba(255,255,255,0.05); box-shadow: none;">
+                    <div class="stat-card-value" id="stats-ties" style="font-size: 1.4rem; color: var(--text-muted);">0</div>
+                    <div class="stat-card-label" style="font-size: 0.6rem;">Ties</div>
+                </div>
+                <div class="stat-card" style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.1); border-color: rgba(255,255,255,0.05); box-shadow: none;">
+                    <div class="stat-card-value" id="stats-losses" style="font-size: 1.4rem; color: var(--danger);">0</div>
+                    <div class="stat-card-label" style="font-size: 0.6rem;">Losses</div>
+                </div>
+            </div>
+
+            <div class="panel" style="background: rgba(0,0,0,0.1); border-color: rgba(255,255,255,0.05); box-shadow: none; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 0.9rem; font-weight: 600;">Win Rate</span>
+                    <span id="stats-winrate" style="font-size: 1.1rem; font-weight: 800; color: var(--info);">0%</span>
+                </div>
+                <div style="height: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; overflow: hidden;">
+                    <div id="stats-winrate-bar" style="height: 100%; width: 0%; background: var(--info); transition: width 0.8s ease;"></div>
+                </div>
+                <p id="stats-total-played" style="font-size: 0.75rem; text-align: center; color: var(--text-muted); margin-top: 12px;"></p>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="closeStatsModal()" style="width: 100%; justify-content: center;">Close</button>
             </div>
         </div>
     </div>
