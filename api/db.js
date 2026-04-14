@@ -86,9 +86,11 @@ export default async function handler(req, res) {
             if (type === 'users') {
                 if (action === 'signup' || action === 'add' || action === 'update') {
                     if (!data.email) return res.status(400).json({ error: 'Missing email' });
+                    const updateData = { ...data };
+                    delete updateData._id;
                     await usersCollection.updateOne(
                         { email: data.email },
-                        { $set: data },
+                        { $set: updateData },
                         { upsert: true }
                     );
                     return res.status(200).json({ success: true });
@@ -100,9 +102,11 @@ export default async function handler(req, res) {
                     // LEGACY SUPPORT: If still sending full array, handle it (carefully)
                     if (!Array.isArray(data)) return res.status(400).json({ error: 'Data must be an array' });
                     for (const user of data) {
+                        const updateData = { ...user };
+                        delete updateData._id;
                         await usersCollection.updateOne(
                             { email: user.email },
-                            { $set: user },
+                            { $set: updateData },
                             { upsert: true }
                         );
                     }
