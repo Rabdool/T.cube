@@ -421,12 +421,27 @@ function confirmDeleteUser(email) {
 function confirmResetStats() {
     openConfirmModal(
         'Reset Game Stats',
-        'This will clear all win statistics across all difficulty levels. User accounts will not be affected.',
+        'This will clear all win statistics across all difficulty levels and reset every users gameplay stats to 0. User accounts will not be deleted.',
         'Reset Stats',
         () => {
+            // Reset global AI stats
             saveWinStats({ very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 });
+            
+            // Reset all user stats locally
+            dbUsers.forEach(u => {
+                u.stats = { wins: 0, losses: 0, ties: 0 };
+            });
+
+            // Trigger backend to wipe users' stats
+            fetch('/api/db', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'users', action: 'reset_all_user_stats' })
+            }).catch(e => console.error('Failed to reset all user stats', e));
+
             refreshDashboard();
-            showToast('📊', 'Game statistics have been reset');
+            refreshUsersTable();
+            showToast('📊', 'All game statistics have been reset');
         }
     );
 }

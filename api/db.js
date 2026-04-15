@@ -111,6 +111,12 @@ export default async function handler(req, res) {
                         );
                     }
                     return res.status(200).json({ success: true });
+                } else if (action === 'reset_all_user_stats') {
+                    await usersCollection.updateMany(
+                        {},
+                        { $set: { "stats.wins": 0, "stats.losses": 0, "stats.ties": 0 } }
+                    );
+                    return res.status(200).json({ success: true });
                 }
                 return res.status(400).json({ error: 'Invalid user action' });
             }
