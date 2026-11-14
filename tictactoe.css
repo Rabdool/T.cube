@@ -9,8 +9,13 @@
 
 :root {
     /* Define some base values that don't change */
-    --o-color: #d4362c;
-    --x-color: #3cb824;
+    /* Blue X / red O: distinguishable with all common colour-vision deficiencies
+       (the old green/red pair is the hardest to tell apart). */
+    --x-ink: #1f5fd1;   /* pieces on the wooden tiles */
+    --o-ink: #c8322a;
+    /* "good"/"bad" meanings (password meter, success text) stay green/red */
+    --good-color: #3cb824;
+    --bad-color: #d4362c;
     --radius: 12px;
     --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -26,6 +31,9 @@ body {
     --wood-border: #5a3018;
     --text: #fff8ee;
     --text-muted: #e0c8a8;
+    /* X/O text colours, bright enough to read on dark wood */
+    --x-color: #6aa6ff;
+    --o-color: #ff6f61;
 
     font-family: 'Outfit', sans-serif;
     background: linear-gradient(145deg, #3e1f0d, #5a3018, #4a2812);
@@ -52,6 +60,8 @@ body.light-theme {
     --wood-border: #c8a882;
     --text: #4a2812;
     --text-muted: #8b5e3c;
+    --x-color: #1f5fcf;
+    --o-color: #c0392b;
 
     background: linear-gradient(145deg, #eaddc0, #fcf4e8, #f5e4cd);
     background-size: 400% 400%;
@@ -458,12 +468,9 @@ body:not(.light-theme) .icon-moon {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.score-item:first-child .score-value {
-    color: var(--o-color);
-}
-
-.score-item:last-child .score-value {
-    color: var(--x-color);
+/* Each score takes its player's current piece colour (set by updateLabels) */
+.score-item .score-value {
+    color: var(--score-color, var(--text));
 }
 
 .score-draw .score-value {
@@ -633,9 +640,9 @@ body.light-theme .cell {
     animation: drawStroke 0.28s cubic-bezier(0.55, 0, 0.35, 1) forwards;
 }
 
-.mark-x path { stroke: var(--x-color); }
+.mark-x path { stroke: var(--x-ink); }
 .mark-x path:nth-child(2) { animation-delay: 0.14s; }
-.mark-o circle { stroke: var(--o-color); animation-duration: 0.42s; }
+.mark-o circle { stroke: var(--o-ink); animation-duration: 0.42s; }
 
 @keyframes drawStroke {
     to { stroke-dashoffset: 0; }
@@ -1063,7 +1070,7 @@ body.light-theme .cell {
 .strength-fill {
     height: 100%;
     width: 0%;
-    background: var(--o-color);
+    background: var(--bad-color);
     /* Red by default */
     transition: all 0.3s ease;
 }
@@ -1085,7 +1092,7 @@ body.light-theme .cell {
 }
 
 .auth-success {
-    color: var(--x-color);
+    color: var(--good-color);
     font-size: 0.85rem;
     margin-bottom: 1rem;
     text-align: center;
@@ -1220,7 +1227,7 @@ body.light-theme .auth-link:hover {
 .win-count {
     font-weight: 900;
     font-size: 1.4rem;
-    color: var(--x-color);
+    color: var(--good-color);
     line-height: 1;
 }
 
@@ -1300,12 +1307,12 @@ body.light-theme .rank-badge:not([class*="rank-"]) {
 
 .side-label-left .side-label-name {
     color: var(--x-color);
-    text-shadow: 0 0 15px rgba(60, 184, 36, 0.2);
+    text-shadow: 0 0 15px rgba(31, 95, 209, 0.25);
 }
 
 .side-label-right .side-label-name {
     color: var(--o-color);
-    text-shadow: 0 0 15px rgba(212, 54, 44, 0.2);
+    text-shadow: 0 0 15px rgba(200, 50, 42, 0.2);
 }
 
 body.light-theme .side-label {

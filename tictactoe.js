@@ -252,7 +252,17 @@ function startGame(selectedMode) {
     resetBoard();
 }
 
+function signColor(sign) {
+    return sign === 'O' ? 'var(--o-color)' : 'var(--x-color)';
+}
+
 function updateLabels() {
+    // Colour each score by the piece its player currently uses (pieces swap between rounds)
+    const leftSign = mode === '2p' ? p1Sign : humanSign;
+    const rightSign = mode === '2p' ? p2Sign : cpuSign;
+    document.getElementById('score-left').style.setProperty('--score-color', signColor(leftSign));
+    document.getElementById('score-right').style.setProperty('--score-color', signColor(rightSign));
+
     // Hide side labels by default, only show in online mode
     if (sideLabelHost) sideLabelHost.style.display = 'none';
     if (sideLabelGuest) sideLabelGuest.style.display = 'none';
@@ -1068,11 +1078,11 @@ function checkPasswordStrength(password) {
     fill.style.width = strength + '%';
 
     if (strength === 0) {
-        fill.style.background = 'var(--o-color)';
+        fill.style.background = 'var(--bad-color)';
         text.textContent = 'Too short';
         btn.disabled = true;
     } else if (strength === 25) {
-        fill.style.background = 'var(--o-color)';
+        fill.style.background = 'var(--bad-color)';
         text.textContent = 'Weak';
         btn.disabled = true;
     } else if (strength === 50) {
@@ -1080,11 +1090,11 @@ function checkPasswordStrength(password) {
         text.textContent = 'Fair';
         btn.disabled = false;
     } else if (strength === 75) {
-        fill.style.background = 'var(--x-color)';
+        fill.style.background = 'var(--good-color)';
         text.textContent = 'Good';
         btn.disabled = false;
     } else {
-        fill.style.background = 'var(--x-color)';
+        fill.style.background = 'var(--good-color)';
         text.textContent = 'Strong';
         btn.disabled = false;
     }
