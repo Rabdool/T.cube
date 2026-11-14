@@ -84,6 +84,12 @@
                 <button id="settings-theme-toggle" class="btn btn-ghost" onclick="toggleTheme()"
                     style="padding: 6px 12px;" type="button">Toggle Theme</button>
             </div>
+
+            <div class="settings-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                <span style="color: var(--text); font-weight: 500;">Sound Effects</span>
+                <button id="settings-sound-toggle" class="btn btn-ghost" onclick="toggleSound()"
+                    style="padding: 6px 12px; min-width: 64px;" type="button" aria-pressed="true">On</button>
+            </div>
         </div>
 
         <button class="btn btn-secondary btn-full" onclick="window.location.href='tictactoe.html'"
@@ -108,6 +114,22 @@
             }
         }
         initTheme();
+
+        function soundOn() {
+            try { return localStorage.getItem('ttt_sound') !== 'off'; } catch { return true; }
+        }
+
+        function renderSoundToggle() {
+            const btn = document.getElementById('settings-sound-toggle');
+            btn.textContent = soundOn() ? 'On' : 'Off';
+            btn.setAttribute('aria-pressed', String(soundOn()));
+        }
+
+        function toggleSound() {
+            try { localStorage.setItem('ttt_sound', soundOn() ? 'off' : 'on'); } catch { /* storage unavailable */ }
+            renderSoundToggle();
+        }
+        renderSoundToggle();
 
         window.onload = async function () {
             if (!getToken()) {

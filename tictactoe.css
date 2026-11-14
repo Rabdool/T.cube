@@ -471,144 +471,226 @@ body:not(.light-theme) .icon-moon {
 }
 
 /* ===== Board ===== */
+body {
+    /* Procedural wood grain: stretched fractal noise, tinted brown (no image files). */
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.16' numOctaves='4' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.22 0 0 0 0 0.11 0 0 0 0 0.03 0 0 0 -2.6 1.55'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23g)'/%3E%3C/svg%3E");
+    --grain-strength: 0.55;
+    --frame-light: #7a4526;
+    --frame-dark: #43200d;
+    --tile-edge: #6e4424;
+    --groove: #2a1206;
+    --win-gold: #ffd36b;
+}
+
+body.light-theme {
+    --grain-strength: 0.42;
+    --frame-light: #c99a68;
+    --frame-dark: #9c6a3c;
+    --tile-edge: #c7a274;
+    --groove: #7a4f2a;
+}
+
 .board {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    padding: 6px;
-    background: var(--wood-border);
-    border-radius: 10px;
-    border: 2px solid rgba(0, 0, 0, 0.3);
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    gap: 9px;
+    padding: 12px;
+    border-radius: 16px;
     position: relative;
+    /* Frame: grain over a lit-from-top wood gradient */
+    background:
+        var(--grain) 0 0 / 260px 260px,
+        linear-gradient(165deg, var(--frame-light), var(--frame-dark));
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.35),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+        0 14px 28px rgba(0, 0, 0, 0.38),
+        0 3px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Dark grooves the tiles sit in */
+.board::before {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-radius: 11px;
+    background: var(--groove);
+    box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
 }
 
 .cell {
     aspect-ratio: 1;
-    border-radius: 6px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all var(--transition);
     user-select: none;
     position: relative;
     overflow: hidden;
     border: none;
-    /* Wood tile gradient */
+    z-index: 1;
+    transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+    /* Raised wood block, lit from the top-left */
     background:
-        linear-gradient(145deg, var(--wood-tile-light), var(--wood-tile), var(--wood-tile-dark));
+        radial-gradient(130% 100% at 28% 18%, var(--wood-tile-light), var(--wood-tile) 55%, var(--wood-tile-dark));
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.1),
-        0 2px 4px rgba(0, 0, 0, 0.2);
+        inset 0 2px 0 rgba(255, 255, 255, 0.28),
+        inset 2px 0 0 rgba(255, 255, 255, 0.1),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.16),
+        inset -2px 0 0 rgba(0, 0, 0, 0.08),
+        0 3px 0 var(--tile-edge),
+        0 6px 8px rgba(0, 0, 0, 0.35);
 }
 
-/* Wood grain on each cell */
+/* Light theme: warm maple tiles (the global light palette is too white for wood) */
+body.light-theme .cell {
+    background:
+        radial-gradient(130% 100% at 28% 18%, #f8e6c6, #eccfa2 55%, #d9b27c);
+}
+
+/* Wood grain on each tile, offset per tile so no two look identical */
 .cell::before {
     content: '';
     position: absolute;
     inset: 0;
-    background:
-        repeating-linear-gradient(80deg,
-            transparent,
-            transparent 8px,
-            rgba(0, 0, 0, 0.03) 8px,
-            rgba(0, 0, 0, 0.03) 10px);
+    background: var(--grain) var(--gx, 0) var(--gy, 0) / 260px 260px;
+    opacity: var(--grain-strength);
+    mix-blend-mode: multiply;
     pointer-events: none;
-    border-radius: 6px;
 }
+
+/* Offsets stay within one 260px grain tile so no seam crosses a cell */
+.cell:nth-child(1) { --gx: 0px; --gy: 0px; }
+.cell:nth-child(2) { --gx: -70px; --gy: -30px; }
+.cell:nth-child(3) { --gx: -130px; --gy: -110px; }
+.cell:nth-child(4) { --gx: -30px; --gy: -130px; }
+.cell:nth-child(5) { --gx: -100px; --gy: -60px; }
+.cell:nth-child(6) { --gx: -140px; --gy: -10px; }
+.cell:nth-child(7) { --gx: -50px; --gy: -90px; }
+.cell:nth-child(8) { --gx: -120px; --gy: -140px; }
+.cell:nth-child(9) { --gx: -15px; --gy: -50px; }
 
 .cell:not(.taken):hover {
-    background: linear-gradient(145deg, #ddbf90, var(--wood-tile-light), var(--wood-tile));
-    transform: scale(1.03);
-}
-
-/* O mark — red circle ring */
-.cell.o::after {
-    content: '';
-    width: 55%;
-    height: 55%;
-    border-radius: 50%;
-    border: 7px solid var(--o-color);
+    transform: translateY(-2px);
+    filter: brightness(1.07);
     box-shadow:
-        0 0 10px rgba(212, 54, 44, 0.4),
-        inset 0 0 6px rgba(212, 54, 44, 0.2);
-    animation: stampIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        inset 0 2px 0 rgba(255, 255, 255, 0.32),
+        inset 2px 0 0 rgba(255, 255, 255, 0.12),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.16),
+        inset -2px 0 0 rgba(0, 0, 0, 0.08),
+        0 5px 0 var(--tile-edge),
+        0 9px 12px rgba(0, 0, 0, 0.35);
 }
 
-/* X mark — green cross via two rotated bars */
-.cell.x::after {
-    content: '';
-    width: 55%;
-    height: 55%;
-    position: relative;
-    background:
-        linear-gradient(var(--x-color), var(--x-color)) no-repeat center/7px 100%,
-        linear-gradient(var(--x-color), var(--x-color)) no-repeat center/100% 7px;
-    transform: rotate(45deg);
-    border-radius: 3px;
-    filter: drop-shadow(0 0 6px rgba(60, 184, 36, 0.5));
-    animation: stampIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Hide the text letters — use shapes instead */
-.cell.o,
-.cell.x {
-    font-size: 0;
-    color: transparent;
+.cell:not(.taken):active {
+    transform: translateY(2px);
 }
 
 .cell.taken {
     cursor: default;
 }
 
+/* Press-down when a piece is placed */
+.cell.just-placed {
+    animation: tilePress 0.32s ease-out;
+}
+
+@keyframes tilePress {
+    0% { transform: translateY(0); }
+    35% {
+        transform: translateY(3px);
+        box-shadow:
+            inset 0 2px 4px rgba(0, 0, 0, 0.25),
+            0 0 0 var(--tile-edge),
+            0 2px 3px rgba(0, 0, 0, 0.3);
+    }
+    100% { transform: translateY(0); }
+}
+
+/* ===== Pieces: inlaid strokes drawn onto the wood ===== */
+.mark {
+    width: 64%;
+    height: 64%;
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+    /* Inlay: light lip below, shadow above, like the paint sits in a carved groove */
+    filter:
+        drop-shadow(0 1.5px 0 rgba(255, 255, 255, 0.35))
+        drop-shadow(0 -1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.mark path,
+.mark circle {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: drawStroke 0.28s cubic-bezier(0.55, 0, 0.35, 1) forwards;
+}
+
+.mark-x path { stroke: var(--x-color); }
+.mark-x path:nth-child(2) { animation-delay: 0.14s; }
+.mark-o circle { stroke: var(--o-color); animation-duration: 0.42s; }
+
+@keyframes drawStroke {
+    to { stroke-dashoffset: 0; }
+}
+
+/* ===== Winning row ===== */
 .cell.win-cell {
-    animation: winPulse 0.8s ease-in-out infinite alternate;
+    animation: winGlow 1s ease-in-out 0.45s infinite alternate;
 }
 
-@keyframes stampIn {
-    0% {
-        transform: scale(0.3) rotate(45deg);
-        opacity: 0.4;
-    }
-
-    60% {
-        transform: scale(1.1) rotate(45deg);
-    }
-
-    100% {
-        transform: scale(1) rotate(45deg);
-    }
+@keyframes winGlow {
+    from { filter: brightness(1); }
+    to { filter: brightness(1.14) saturate(1.1); }
 }
 
-/* Fix for O — it shouldn't rotate */
-.cell.o::after {
-    animation: stampInO 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+.win-line {
+    position: absolute;
+    height: 10px;
+    border-radius: 999px;
+    transform-origin: 0 50%;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(180deg, #fff3c4, var(--win-gold) 45%, #d99a2b);
+    box-shadow:
+        0 0 10px rgba(255, 200, 80, 0.75),
+        0 0 22px rgba(255, 170, 40, 0.45),
+        0 2px 3px rgba(0, 0, 0, 0.35);
+    clip-path: inset(0 100% 0 0 round 999px);
+    animation: drawLine 0.45s cubic-bezier(0.6, 0, 0.3, 1) 0.15s forwards;
 }
 
-@keyframes stampInO {
-    0% {
-        transform: scale(0.3);
-        opacity: 0.4;
-    }
-
-    60% {
-        transform: scale(1.1);
-    }
-
-    100% {
-        transform: scale(1);
-    }
+.win-line.no-anim {
+    animation: none;
+    clip-path: none;
 }
 
-@keyframes winPulse {
-    0% {
-        box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0, 0, 0, 0.2);
+@keyframes drawLine {
+    to { clip-path: inset(0 0 0 0 round 999px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mark path,
+    .mark circle {
+        animation: none;
+        stroke-dashoffset: 0;
     }
 
-    100% {
-        box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.2), 0 2px 12px rgba(255, 215, 0, 0.3);
+    .cell.just-placed,
+    .cell.win-cell {
+        animation: none;
+    }
+
+    .win-line {
+        animation: none;
+        clip-path: none;
     }
 }
 
@@ -846,11 +928,12 @@ body:not(.light-theme) .icon-moon {
     }
 
     .cell {
-        border-radius: 5px;
+        border-radius: 6px;
     }
 
-    .cell.o::after {
-        border-width: 5px;
+    .board {
+        gap: 7px;
+        padding: 10px;
     }
 
     .diff-btn {
