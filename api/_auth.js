@@ -40,6 +40,15 @@ export function verifyPassword(password, stored) {
     return crypto.timingSafeEqual(actual, expected);
 }
 
+// Random temporary password for admin resets (no look-alike characters such as 0/O, 1/l).
+export function generateTempPassword(length = 10) {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const bytes = crypto.randomBytes(length);
+    let out = '';
+    for (let i = 0; i < length; i++) out += alphabet[bytes[i] % alphabet.length];
+    return out;
+}
+
 // Constant-time compare for legacy plaintext passwords (migrated on next login).
 export function safeEqual(a, b) {
     const ha = crypto.createHash('sha256').update(String(a)).digest();

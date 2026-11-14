@@ -1,7 +1,7 @@
 import { MongoClient } from 'mongodb';
 import {
     hashPassword, verifyPassword, safeEqual,
-    createToken, getRequestSession, isAdminEmail, ConfigError
+    createToken, getRequestSession, isAdminEmail, ConfigError, generateTempPassword
 } from './_auth.js';
 
 const uri = process.env.STORAGE_URL || process.env.MONGODB_URI;
@@ -77,6 +77,7 @@ function toProfile(user) {
         stats: normalizeStats(user.stats),
         difficultyWins: normalizeDifficultyWins(user.difficultyWins),
         isAdmin: isAdminEmail(user.email),
+        mustChangePassword: !!user.mustChangePassword,
     };
 }
 
@@ -252,7 +253,10 @@ async function handleAuth(action, body, ctx) {
         // Tokens issued before this moment stop working: other devices get logged out.
         await users.updateOne(
             { _id: me._id },
-            { $set: { passwordHash: hashPassword(newPassword), passwordChangedAt: new Date() }, $unset: { password: '' } }
+            {
+                $set: { passwordHash: hashPassword(newPassword), passwordChangedAt: new Date() },
+                $unset: { password: '', mustChangePassword: '' }
+            }
         );
         return { token: createToken(me.email) };
     }
@@ -319,6 +323,26 @@ async function handleAdmin(action, body, ctx) {
         }
         await users.deleteOne({ email: body.email });
         return { success: true };
+    }
+
+    if (action === 'reset_password') {
+        if (typeof body.email !== 'string') throw new HttpError(400, 'Missing email');
+        const target = await users.findOne({ email: body.email });
+        if (!target) throw new HttpError(404, 'User not found');
+        if (target.email.toLowerCase() === me.email.toLowerCase()) {
+            throw new HttpError(400, 'Use Settings to change your own password.');
+        }
+        const tempPassword = generateTempPassword();
+        await users.updateOne(
+            { _id: target._id },
+            {
+                // passwordChangedAt logs the player out everywhere; they must pick a new password after login.
+                $set: { passwordHash: hashPassword(tempPassword), passwordChangedAt: new Date(), mustChangePassword: true },
+                $unset: { password: '' }
+            }
+        );
+        await clearFailures(ctx, target.email); // lift any login lockout
+        return { tempPassword };
     }
 
     if (action === 'reset_stats') {
