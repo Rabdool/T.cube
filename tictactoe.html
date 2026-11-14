@@ -170,17 +170,14 @@
 
         <!-- Forgot Password Form -->
         <div id="auth-forgot" class="card auth-card" style="display: none;">
-            <h1 class="title">Reset Password</h1>
-            <p class="subtitle">Enter your email and we will send a link.</p>
-            <form id="form-forgot" onsubmit="handleForgot(event)">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="forgot-email" required placeholder="player@example.com">
-                </div>
+            <h1 class="title">Forgot Password?</h1>
+            <p class="subtitle">Email reset isn't available yet.</p>
+            <form id="form-forgot" onsubmit="return false">
+                <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 1rem;">
+                    Ask a T.cube admin to reset your password. They'll give you a temporary password:
+                    log in with it, and you'll be asked to choose a new one.
+                </p>
                 <div id="forgot-success" class="auth-success"></div>
-                <button type="submit" class="btn btn-secondary btn-full">
-                    <span class="btn-text" style="align-items: center"><strong>Send Reset Link</strong></span>
-                </button>
             </form>
             <p class="auth-footer"><a href="#" class="auth-link" onclick="switchAuthView('login')">← Back to Login</a>
             </p>

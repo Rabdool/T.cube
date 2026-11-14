@@ -332,6 +332,43 @@ async function saveUserEdit() {
     if (ok) closeModal();
 }
 
+// ===== Reset Password =====
+function confirmResetPassword() {
+    const email = document.getElementById('edit-user-email').value;
+    if (email === currentUserEmail) {
+        showToast('⚠️', 'Use Settings to change your own password');
+        return;
+    }
+    const user = getUsers().find(u => u.email === email);
+    const displayName = user ? (user.username || user.email) : email;
+    closeModal();
+
+    openConfirmModal(
+        'Reset Password',
+        `This replaces "${displayName}"'s password with a temporary one and logs them out everywhere.`,
+        'Reset Password',
+        async () => {
+            const result = await adminAction('reset_password', { email });
+            if (!result) return;
+            document.getElementById('temp-password-user').textContent = displayName;
+            document.getElementById('temp-password-value').textContent = result.tempPassword;
+            document.getElementById('temp-password-modal').classList.add('active');
+        }
+    );
+}
+
+function copyTempPassword() {
+    const value = document.getElementById('temp-password-value').textContent;
+    navigator.clipboard.writeText(value)
+        .then(() => showToast('📋', 'Copied'))
+        .catch(() => showToast('⚠️', 'Copy failed. Select the text instead.'));
+}
+
+function closeTempPasswordModal() {
+    document.getElementById('temp-password-value').textContent = '';
+    document.getElementById('temp-password-modal').classList.remove('active');
+}
+
 // ===== Confirm Modal =====
 let confirmCallback = null;
 

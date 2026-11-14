@@ -927,6 +927,11 @@ function getMyUsername() {
 
 // ===== Auth (server-verified sessions) =====
 function enterApp(user) {
+    if (user.mustChangePassword) {
+        // Logged in with an admin-issued temporary password: pick a new one first.
+        window.location.href = 'settings.html?mustChange=1';
+        return;
+    }
     currentUser = user;
     winStats = { ...loadStats(), ...user.difficultyWins }; // this player's own unlock progress
     authScreen.classList.remove('active');
@@ -1074,10 +1079,6 @@ async function handleLogin(e) {
     }
 }
 
-function handleForgot(e) {
-    e.preventDefault();
-    document.getElementById('forgot-success').textContent = 'If the email exists, a reset link was sent!';
-}
 
 function handleLogout() {
     currentUser = null;

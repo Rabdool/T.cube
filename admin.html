@@ -382,9 +382,32 @@
                     <option value="admin">Admin</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label>Password</label>
+                <button class="btn btn-danger" type="button" onclick="confirmResetPassword()">Reset Password</button>
+            </div>
             <div class="modal-actions">
                 <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveUserEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Temporary Password Modal -->
+    <div class="modal-overlay" id="temp-password-modal">
+        <div class="modal">
+            <h2 class="modal-title">Temporary Password</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5;">
+                Give this to <strong id="temp-password-user"></strong>. It's shown only once.
+                They'll be asked to choose a new password after logging in.
+            </p>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 1.5rem;">
+                <code id="temp-password-value" style="flex: 1; font-size: 1.3rem; letter-spacing: 1px; padding: 10px 12px;
+                    border-radius: 8px; background: rgba(0,0,0,0.25); user-select: all;"></code>
+                <button class="btn btn-ghost" type="button" onclick="copyTempPassword()">Copy</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="closeTempPasswordModal()">Done</button>
             </div>
         </div>
     </div>

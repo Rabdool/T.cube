@@ -33,6 +33,11 @@
         <h1 class="title">Settings</h1>
         <p class="subtitle">Manage Account Details</p>
 
+        <div id="must-change-banner" style="display: none; background: rgba(255, 179, 0, 0.15); border: 1px solid #ffb300;
+            border-radius: 12px; padding: 12px 14px; margin-bottom: 1rem; line-height: 1.5; color: var(--text);">
+            You're using a temporary password. Enter it as your <strong>Current Password</strong> below and choose a new one.
+        </div>
+
         <div class="settings-content">
             <form id="form-settings" onsubmit="handleUpdateSettings(event)">
                 <div class="form-group">
@@ -113,6 +118,10 @@
                 const { user } = await apiCall('auth', 'me');
                 document.getElementById('settings-email').value = user.email;
                 document.getElementById('settings-username').value = user.username || '';
+                if (user.mustChangePassword) {
+                    document.getElementById('must-change-banner').style.display = 'block';
+                    document.getElementById('pw-current').focus();
+                }
             } catch (e) {
                 if (e.status === 401) {
                     setToken(null);
@@ -161,6 +170,9 @@
                 document.getElementById('form-password').reset();
                 statusEl.style.color = 'var(--wood-light)';
                 statusEl.textContent = 'Password changed. Other devices have been logged out.';
+                if (document.getElementById('must-change-banner').style.display === 'block') {
+                    setTimeout(() => { window.location.href = 'tictactoe.html'; }, 1200);
+                }
             } catch (err) {
                 statusEl.style.color = '#ff6b6b';
                 statusEl.textContent = err.message || 'Failed to change password.';
