@@ -1,0 +1,79 @@
+// Shared auth helpers. Files starting with "_" in /api are not exposed as routes by Vercel.
+import crypto from 'crypto';
+
+const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+// Admins are decided server-side only. Override with ADMIN_EMAILS="a@x.com,b@y.com".
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ||
+    'abdurrahmanabdulkabir06@gmail.com,test-admin-verification@gmail.com')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+
+export function isAdminEmail(email) {
+    return !!email && ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
+function getSecret() {
+    const secret = process.env.AUTH_SECRET;
+    if (!secret || secret.length < 32) {
+        throw new Error('AUTH_SECRET env var missing or shorter than 32 characters');
+    }
+    return secret;
+}
+
+// ===== Password hashing (scrypt) =====
+export function hashPassword(password) {
+    const salt = crypto.randomBytes(16);
+    const hash = crypto.scryptSync(password, salt, 64);
+    return `scrypt$${salt.toString('base64')}$${hash.toString('base64')}`;
+}
+
+export function verifyPassword(password, stored) {
+    if (typeof stored !== 'string') return false;
+    const [scheme, saltB64, hashB64] = stored.split('$');
+    if (scheme !== 'scrypt' || !saltB64 || !hashB64) return false;
+    const expected = Buffer.from(hashB64, 'base64');
+    const actual = crypto.scryptSync(password, Buffer.from(saltB64, 'base64'), expected.length);
+    return crypto.timingSafeEqual(actual, expected);
+}
+
+// Constant-time compare for legacy plaintext passwords (migrated on next login).
+export function safeEqual(a, b) {
+    const ha = crypto.createHash('sha256').update(String(a)).digest();
+    const hb = crypto.createHash('sha256').update(String(b)).digest();
+    return crypto.timingSafeEqual(ha, hb);
+}
+
+// ===== Signed session tokens =====
+function sign(payloadB64) {
+    return crypto.createHmac('sha256', getSecret()).update(payloadB64).digest('base64url');
+}
+
+export function createToken(email) {
+    const payload = Buffer.from(JSON.stringify({ email, exp: Date.now() + TOKEN_TTL_MS })).toString('base64url');
+    return `${payload}.${sign(payload)}`;
+}
+
+// Returns the email in a valid token, or null.
+export function verifyToken(token) {
+    if (typeof token !== 'string') return null;
+    const [payload, sig] = token.split('.');
+    if (!payload || !sig) return null;
+    const expected = sign(payload);
+    if (sig.length !== expected.length ||
+        !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    try {
+        const { email, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+        if (!email || typeof exp !== 'number' || exp < Date.now()) return null;
+        return email;
+    } catch {
+        return null;
+    }
+}
+
+export function getRequestEmail(req) {
+    const header = req.headers?.authorization || '';
+    const match = header.match(/^Bearer (.+)$/);
+    return match ? verifyToken(match[1]) : null;
+}

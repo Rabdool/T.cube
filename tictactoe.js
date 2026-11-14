@@ -32,13 +32,12 @@ function unlockHint(diffId, stats) {
 }
 
 // ===== Database Integration =====
-let dbUsers = [];
+let leaderboard = [];
 
 async function fetchInitialDB() {
     try {
-        const res = await fetch('/api/db');
-        const data = await res.json();
-        if (data.users) dbUsers = data.users;
+        const data = await apiGetPublic();
+        if (data.leaderboard) leaderboard = data.leaderboard;
         if (data.stats) winStats = data.stats;
     } catch (e) {
         console.error('Failed to load from DB', e);
@@ -48,15 +47,6 @@ async function fetchInitialDB() {
 // ===== Persistent Stats =====
 function loadStats() {
     return { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 };
-}
-
-function saveStats(stats) {
-    winStats = stats;
-    fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'stats', data: stats })
-    }).catch(e => console.error(e));
 }
 
 // ===== State =====
@@ -84,7 +74,7 @@ let onlineRoomId = null;
 let opponentUsername = 'Opponent';
 
 
-// Auth State
+// Auth State: profile returned by the server ({ email, username, stats, isAdmin })
 let currentUser = null;
 
 // ===== Theme Initialization =====
@@ -164,12 +154,8 @@ async function showLeaderboard() {
 function renderLeaderboard() {
     leaderboardList.innerHTML = '';
     
-    // Sort users by wins, then losses (descending wins)
-    const sortedUsers = [...dbUsers].filter(u => u.stats).sort((a, b) => {
-        const aWins = a.stats?.wins || 0;
-        const bWins = b.stats?.wins || 0;
-        return bWins - aWins;
-    }).slice(0, 10); // Top 10
+    // Server returns the top 10, already sorted by wins
+    const sortedUsers = leaderboard;
 
     if (sortedUsers.length === 0) {
         leaderboardList.innerHTML = '<div style="text-align: center; padding: 40px; opacity: 0.6;">No players yet.</div>';
@@ -189,7 +175,7 @@ function renderLeaderboard() {
         item.innerHTML = `
             <div class="rank-badge">${rank}</div>
             <div class="player-info">
-                <div class="player-name">${user.username || 'Anonymous'}</div>
+                <div class="player-name">${escapeHtml(user.username || 'Anonymous')}</div>
                 <div class="player-stats">${wins}W - ${losses}L - ${ties}T</div>
             </div>
             <div class="player-wins">
@@ -591,33 +577,13 @@ function checkWin(sign) {
 
 function updateUserStats(result) {
     if (!currentUser) return;
-    
-    let idx = dbUsers.findIndex(u => u.email.toLowerCase() === currentUser.toLowerCase());
-    if (idx !== -1) {
-        if (!dbUsers[idx].stats) {
-            dbUsers[idx].stats = { wins: 0, losses: 0, ties: 0 };
-        }
-        
-        // Ensure properties exist
-        dbUsers[idx].stats.wins = dbUsers[idx].stats.wins || 0;
-        dbUsers[idx].stats.losses = dbUsers[idx].stats.losses || 0;
-        dbUsers[idx].stats.ties = dbUsers[idx].stats.ties || 0;
-        
-        if (result === 'win') dbUsers[idx].stats.wins++;
-        else if (result === 'loss') dbUsers[idx].stats.losses++;
-        else if (result === 'tie') dbUsers[idx].stats.ties++;
-        
-        // Sync to backend using /api/db
-        fetch('/api/db', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                type: 'users',
-                action: 'update',
-                data: dbUsers[idx]
-            })
-        }).catch(e => console.error('Stats sync failed', e));
-    }
+
+    const field = { win: 'wins', loss: 'losses', tie: 'ties' }[result];
+    if (field) currentUser.stats[field] = (currentUser.stats[field] || 0) + 1;
+
+    // Server increments atomically; for 1P wins it also bumps the global difficulty counter.
+    apiCall('stats', 'record', { result, mode, difficulty })
+        .catch(e => console.error('Stats sync failed', e));
 }
 
 // ===== End Game =====
@@ -676,8 +642,7 @@ function endGame(winnerSign) {
                 const humanWon = (winnerSign === humanSign);
                 if (humanWon) {
                     scores.p1++; // Human is always p1 in layout
-                    winStats[difficulty]++;
-                    saveStats(winStats);
+                    winStats[difficulty]++; // local copy for unlock messages; server is updated below
                     updateUserStats('win');
 
                     resultIcon.textContent = '🎉';
@@ -764,15 +729,11 @@ async function autoMatch() {
     statusEl.textContent = 'Connecting to matchmaker...';
     
     try {
-        const res = await fetch('/api/db', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'matchmaking', action: 'auto_match', username: getMyUsername() })
-        });
-        const data = await res.json();
-        
-        if (!data.success) {
-            statusEl.textContent = 'Matchmaking failed: ' + (data.error || 'Unknown error');
+        let data;
+        try {
+            data = await apiCall('matchmaking', 'auto_match');
+        } catch (err) {
+            statusEl.textContent = 'Matchmaking failed: ' + err.message;
             return;
         }
 
@@ -962,53 +923,33 @@ function startOnlineGame() {
 }
 
 function getMyUsername() {
-    if (!currentUser) return 'You';
-    const userObj = dbUsers.find(u => u.email === currentUser);
-    return userObj ? (userObj.username || userObj.email.split('@')[0]) : 'You';
+    return currentUser ? currentUser.username : 'You';
 }
 
-// ===== Auth & Users (Vercel KV Backend) =====
-function getAuthUsers() {
-    return dbUsers;
+// ===== Auth (server-verified sessions) =====
+function enterApp(user) {
+    currentUser = user;
+    authScreen.classList.remove('active');
+    menuScreen.classList.add('active');
+    showAdminButton();
 }
 
-function saveAuthUsers(data, action = 'update') {
-    // If we're updating a single user, data is the user object.
-    // If we're updating everything (legacy), data is the array.
-    if (!Array.isArray(data)) {
-        // Find and update in local list
-        const idx = dbUsers.findIndex(u => u.email === data.email);
-        if (idx !== -1) dbUsers[idx] = data;
-        else dbUsers.push(data);
-    } else {
-        dbUsers = data;
-    }
-
-    fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'users', action, data })
-    }).catch(e => console.error('Sync failed', e));
-}
-
-function initAuth() {
-    const savedUser = localStorage.getItem('ttt_currentUser');
-    if (savedUser) {
-        currentUser = savedUser;
-        authScreen.classList.remove('active');
-        menuScreen.classList.add('active');
-        showAdminButton();
+async function initAuth() {
+    if (!getToken()) return;
+    try {
+        const data = await apiCall('auth', 'me');
+        enterApp(data.user);
+    } catch (e) {
+        // Invalid/expired token: drop it. Network errors keep it for next time.
+        if (e.status === 401) setToken(null);
+        console.warn('Session restore failed:', e.message);
     }
 }
 
 function showAdminButton() {
-    const ALLOWED_ADMINS = ['abdurrahmanabdulkabir06@gmail.com', 'test-admin-verification@gmail.com'];
     const adminBtn = document.getElementById('admin-toggle');
-    if (adminBtn && ALLOWED_ADMINS.includes(currentUser)) {
-        adminBtn.style.display = 'flex';
-    } else if (adminBtn) {
-        adminBtn.style.display = 'none';
-    }
+    // UI hint only; the server enforces admin access on every admin request.
+    if (adminBtn) adminBtn.style.display = currentUser?.isAdmin ? 'flex' : 'none';
 }
 
 function switchAuthView(view) {
@@ -1094,76 +1035,42 @@ async function handleSignup(e) {
     btn.innerHTML = '<span class="btn-text" style="align-items: center"><strong>Processing...</strong></span>';
     btn.disabled = true;
 
+    const errorEl = document.getElementById('signup-error');
     try {
         const username = document.getElementById('signup-username').value.trim();
         const email = document.getElementById('signup-email').value.trim();
-        const pwd = document.getElementById('signup-password').value;
+        const password = document.getElementById('signup-password').value;
         const confirm = document.getElementById('signup-confirm').value;
-        const errorEl = document.getElementById('signup-error');
 
-        if (pwd !== confirm) {
+        if (password !== confirm) {
             errorEl.textContent = 'Passwords do not match.';
             return;
         }
 
-        const users = getAuthUsers();
-        if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-            errorEl.textContent = 'Account already exists for this email.';
-            return;
-        }
-        if (users.find(u => u.username && u.username.toLowerCase() === username.toLowerCase())) {
-            errorEl.textContent = 'This username is already taken.';
-            return;
-        }
-
-        const newUser = { username, email, password: pwd };
-        
-        const res = await fetch('/api/db', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'users', action: 'signup', data: newUser })
-        });
-        
-        const resData = await res.json();
-        
-        if (res.ok) {
-            await fetchInitialDB();
-            localStorage.setItem('ttt_currentUser', email);
-            currentUser = email;
-            authScreen.classList.remove('active');
-            menuScreen.classList.add('active');
-            showAdminButton();
-        } else {
-            errorEl.textContent = resData.error || 'Failed to create account.';
-        }
+        const data = await apiCall('auth', 'signup', { username, email, password });
+        setToken(data.token);
+        enterApp(data.user);
+    } catch (err) {
+        errorEl.textContent = err.message || 'Failed to create account.';
     } finally {
-        if(btn) {
-            btn.innerHTML = prevText;
-            btn.disabled = false;
-        }
+        btn.innerHTML = prevText;
+        btn.disabled = false;
     }
 }
 
-function handleLogin(e) {
+async function handleLogin(e) {
     e.preventDefault();
-    const identifier = document.getElementById('login-identifier').value.trim().toLowerCase();
-    const pwd = document.getElementById('login-password').value;
+    const identifier = document.getElementById('login-identifier').value.trim();
+    const password = document.getElementById('login-password').value;
     const errorEl = document.getElementById('login-error');
+    errorEl.textContent = '';
 
-    const users = getAuthUsers();
-    const user = users.find(u => {
-        const match = u.email.toLowerCase() === identifier || (u.username && u.username.toLowerCase() === identifier);
-        return match && u.password === pwd;
-    });
-
-    if (user) {
-        localStorage.setItem('ttt_currentUser', user.email);
-        currentUser = user.email;
-        authScreen.classList.remove('active');
-        menuScreen.classList.add('active');
-        showAdminButton();
-    } else {
-        errorEl.textContent = 'Invalid credentials.';
+    try {
+        const data = await apiCall('auth', 'login', { identifier, password });
+        setToken(data.token);
+        enterApp(data.user);
+    } catch (err) {
+        errorEl.textContent = err.status === 401 ? 'Invalid credentials.' : (err.message || 'Login failed.');
     }
 }
 
@@ -1174,7 +1081,7 @@ function handleForgot(e) {
 
 function handleLogout() {
     currentUser = null;
-    localStorage.removeItem('ttt_currentUser');
+    setToken(null);
 
     menuScreen.classList.remove('active');
     diffScreen.classList.remove('active');
