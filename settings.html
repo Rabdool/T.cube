@@ -52,6 +52,28 @@
             <div style="height: 16px;"></div>
             <hr style="border: none; border-top: 1px solid var(--wood-border); margin: 15px 0;">
 
+            <form id="form-password" onsubmit="handleChangePassword(event)">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" id="pw-current" required autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="pw-new" required minlength="6" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="pw-confirm" required minlength="6" autocomplete="new-password">
+                </div>
+                <div id="password-status" class="auth-success" style="color: var(--wood-light)"></div>
+                <button type="submit" class="btn btn-primary btn-full" id="pw-submit">
+                    <span class="btn-text" style="align-items: center"><strong>Change Password</strong></span>
+                </button>
+            </form>
+
+            <div style="height: 16px;"></div>
+            <hr style="border: none; border-top: 1px solid var(--wood-border); margin: 15px 0;">
+
             <div class="settings-row" style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="color: var(--text); font-weight: 500;">Appearance</span>
                 <button id="settings-theme-toggle" class="btn btn-ghost" onclick="toggleTheme()"
@@ -116,6 +138,35 @@
             setTimeout(() => {
                 statusEl.textContent = '';
             }, 3000);
+        }
+
+        async function handleChangePassword(e) {
+            e.preventDefault();
+            const currentPassword = document.getElementById('pw-current').value;
+            const newPassword = document.getElementById('pw-new').value;
+            const confirm = document.getElementById('pw-confirm').value;
+            const statusEl = document.getElementById('password-status');
+            const btn = document.getElementById('pw-submit');
+
+            if (newPassword !== confirm) {
+                statusEl.style.color = '#ff6b6b';
+                statusEl.textContent = 'New passwords do not match.';
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                const { token } = await apiCall('auth', 'change_password', { currentPassword, newPassword });
+                setToken(token); // keep this device logged in; other devices are logged out
+                document.getElementById('form-password').reset();
+                statusEl.style.color = 'var(--wood-light)';
+                statusEl.textContent = 'Password changed. Other devices have been logged out.';
+            } catch (err) {
+                statusEl.style.color = '#ff6b6b';
+                statusEl.textContent = err.message || 'Failed to change password.';
+            } finally {
+                btn.disabled = false;
+            }
         }
     </script>
 </body>

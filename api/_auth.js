@@ -14,10 +14,12 @@ export function isAdminEmail(email) {
     return !!email && ADMIN_EMAILS.includes(email.toLowerCase());
 }
 
+export class ConfigError extends Error {}
+
 function getSecret() {
     const secret = process.env.AUTH_SECRET;
     if (!secret || secret.length < 32) {
-        throw new Error('AUTH_SECRET env var missing or shorter than 32 characters');
+        throw new ConfigError('AUTH_SECRET env var missing or shorter than 32 characters');
     }
     return secret;
 }
@@ -51,11 +53,12 @@ function sign(payloadB64) {
 }
 
 export function createToken(email) {
-    const payload = Buffer.from(JSON.stringify({ email, exp: Date.now() + TOKEN_TTL_MS })).toString('base64url');
+    const now = Date.now();
+    const payload = Buffer.from(JSON.stringify({ email, iat: now, exp: now + TOKEN_TTL_MS })).toString('base64url');
     return `${payload}.${sign(payload)}`;
 }
 
-// Returns the email in a valid token, or null.
+// Returns { email, iat } for a valid token, or null.
 export function verifyToken(token) {
     if (typeof token !== 'string') return null;
     const [payload, sig] = token.split('.');
@@ -64,15 +67,15 @@ export function verifyToken(token) {
     if (sig.length !== expected.length ||
         !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
     try {
-        const { email, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+        const { email, iat, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
         if (!email || typeof exp !== 'number' || exp < Date.now()) return null;
-        return email;
+        return { email, iat: typeof iat === 'number' ? iat : 0 };
     } catch {
         return null;
     }
 }
 
-export function getRequestEmail(req) {
+export function getRequestSession(req) {
     const header = req.headers?.authorization || '';
     const match = header.match(/^Bearer (.+)$/);
     return match ? verifyToken(match[1]) : null;
