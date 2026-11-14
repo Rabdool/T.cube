@@ -62,12 +62,20 @@ function normalizeStats(stats) {
     };
 }
 
+// Per-player wins against the CPU at each difficulty; drives difficulty unlocks.
+function normalizeDifficultyWins(dw) {
+    const out = {};
+    for (const id of DIFFICULTY_IDS) out[id] = Math.max(0, Number(dw?.[id]) || 0);
+    return out;
+}
+
 // What the logged-in user sees about themselves.
 function toProfile(user) {
     return {
         email: user.email,
         username: user.username || user.email.split('@')[0],
         stats: normalizeStats(user.stats),
+        difficultyWins: normalizeDifficultyWins(user.difficultyWins),
         isAdmin: isAdminEmail(user.email),
     };
 }
@@ -78,6 +86,7 @@ function toAdminView(user) {
         email: user.email,
         username: user.username || '',
         stats: normalizeStats(user.stats),
+        difficultyWins: normalizeDifficultyWins(user.difficultyWins),
         isAdmin: isAdminEmail(user.email),
         createdAt: user.createdAt || null,
     };
@@ -259,10 +268,15 @@ async function handleStats(action, body, ctx) {
         const field = { win: 'wins', loss: 'losses', tie: 'ties' }[body.result];
         if (!field) throw new HttpError(400, 'Invalid result');
 
-        // Atomic increments: concurrent games can no longer overwrite each other.
-        await users.updateOne({ _id: me._id }, { $inc: { [`stats.${field}`]: 1 } });
+        const inc = { [`stats.${field}`]: 1 };
+        const cpuWin = body.result === 'win' && body.mode === '1p' && DIFFICULTY_IDS.includes(body.difficulty);
+        if (cpuWin) inc[`difficultyWins.${body.difficulty}`] = 1;
 
-        if (body.result === 'win' && body.mode === '1p' && DIFFICULTY_IDS.includes(body.difficulty)) {
+        // Atomic increments: concurrent games can no longer overwrite each other.
+        await users.updateOne({ _id: me._id }, { $inc: inc });
+
+        if (cpuWin) {
+            // Global total, shown on the admin dashboard.
             await kv.updateOne(
                 { key: 'ttt_wins' },
                 { $inc: { [`value.${body.difficulty}`]: 1 } },
@@ -306,7 +320,10 @@ async function handleAdmin(action, body, ctx) {
     }
 
     if (action === 'reset_stats') {
-        await users.updateMany({}, { $set: { stats: { wins: 0, losses: 0, ties: 0 } } });
+        await users.updateMany({}, { $set: {
+            stats: { wins: 0, losses: 0, ties: 0 },
+            difficultyWins: normalizeDifficultyWins(null),
+        } });
         await kv.updateOne({ key: 'ttt_wins' }, { $set: { value: { ...EMPTY_WIN_STATS } } }, { upsert: true });
         return { success: true };
     }
@@ -322,6 +339,7 @@ async function handleAdmin(action, body, ctx) {
         for (const u of body.users) {
             if (!u || typeof u.email !== 'string' || !EMAIL_RE.test(u.email)) continue;
             const set = { email: u.email, stats: normalizeStats(u.stats) };
+            if (u.difficultyWins) set.difficultyWins = normalizeDifficultyWins(u.difficultyWins);
             if (typeof u.username === 'string' && u.username.trim()) set.username = u.username.trim();
             if (typeof u.passwordHash === 'string' && u.passwordHash.startsWith('scrypt$')) {
                 set.passwordHash = u.passwordHash;
