@@ -9,6 +9,11 @@ const dbName = process.env.MONGODB_DB || 'tcube';
 
 const DIFFICULTY_IDS = ['very_easy', 'easy', 'normal', 'hard', 'very_hard'];
 const EMPTY_WIN_STATS = { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 };
+
+// Leaderboard points: harder wins are worth more, so farming Very Easy doesn't top the board.
+const DIFFICULTY_POINTS = { very_easy: 1, easy: 2, normal: 3, hard: 4, very_hard: 5 };
+const ONLINE_WIN_POINTS = 3;
+const LEGACY_WIN_POINTS = 1; // wins recorded before difficulty was tracked
 const USERNAME_RE = /^[\p{L}\p{N}_ .-]{3,20}$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 6;
@@ -69,6 +74,22 @@ function normalizeDifficultyWins(dw) {
     return out;
 }
 
+// Points implied by a user's recorded wins; used to backfill accounts from before points existed.
+function computePoints(user) {
+    const dw = normalizeDifficultyWins(user.difficultyWins);
+    let points = 0, attributed = 0;
+    for (const id of DIFFICULTY_IDS) {
+        points += dw[id] * DIFFICULTY_POINTS[id];
+        attributed += dw[id];
+    }
+    const unattributed = Math.max(0, normalizeStats(user.stats).wins - attributed);
+    return points + unattributed * LEGACY_WIN_POINTS;
+}
+
+function getPoints(user) {
+    return typeof user.points === 'number' ? user.points : computePoints(user);
+}
+
 // What the logged-in user sees about themselves.
 function toProfile(user) {
     return {
@@ -76,6 +97,7 @@ function toProfile(user) {
         username: user.username || user.email.split('@')[0],
         stats: normalizeStats(user.stats),
         difficultyWins: normalizeDifficultyWins(user.difficultyWins),
+        points: getPoints(user),
         isAdmin: isAdminEmail(user.email),
         mustChangePassword: !!user.mustChangePassword,
     };
@@ -88,6 +110,7 @@ function toAdminView(user) {
         username: user.username || '',
         stats: normalizeStats(user.stats),
         difficultyWins: normalizeDifficultyWins(user.difficultyWins),
+        points: getPoints(user),
         isAdmin: isAdminEmail(user.email),
         createdAt: user.createdAt || null,
     };
@@ -119,6 +142,12 @@ async function migrateLegacyKv(users, kv) {
         }
         await kv.deleteOne({ key: 'ttt_users' });
         console.log(`✅ Migrated ${entry.value.length} users from KV to 'users' collection`);
+    }
+    // Give accounts created before leaderboard points their points, once.
+    const needPoints = await users.find({ points: { $exists: false } },
+        { projection: { stats: 1, difficultyWins: 1 } }).toArray();
+    for (const u of needPoints) {
+        await users.updateOne({ _id: u._id, points: { $exists: false } }, { $set: { points: computePoints(u) } });
     }
     migrationChecked = true;
 }
@@ -276,7 +305,16 @@ async function handleStats(action, body, ctx) {
 
         const inc = { [`stats.${field}`]: 1 };
         const cpuWin = body.result === 'win' && body.mode === '1p' && DIFFICULTY_IDS.includes(body.difficulty);
-        if (cpuWin) inc[`difficultyWins.${body.difficulty}`] = 1;
+        if (cpuWin) {
+            inc[`difficultyWins.${body.difficulty}`] = 1;
+            inc.points = DIFFICULTY_POINTS[body.difficulty];
+        } else if (body.result === 'win' && body.mode === 'online') {
+            inc.points = ONLINE_WIN_POINTS;
+        }
+        // Accounts not yet backfilled get their points set before this increment.
+        if (inc.points && typeof me.points !== 'number') {
+            await users.updateOne({ _id: me._id, points: { $exists: false } }, { $set: { points: computePoints(me) } });
+        }
 
         // Atomic increments: concurrent games can no longer overwrite each other.
         await users.updateOne({ _id: me._id }, { $inc: inc });
@@ -349,6 +387,7 @@ async function handleAdmin(action, body, ctx) {
         await users.updateMany({}, { $set: {
             stats: { wins: 0, losses: 0, ties: 0 },
             difficultyWins: normalizeDifficultyWins(null),
+            points: 0,
         } });
         await kv.updateOne({ key: 'ttt_wins' }, { $set: { value: { ...EMPTY_WIN_STATS } } }, { upsert: true });
         return { success: true };
@@ -366,6 +405,7 @@ async function handleAdmin(action, body, ctx) {
             if (!u || typeof u.email !== 'string' || !EMAIL_RE.test(u.email)) continue;
             const set = { email: u.email, stats: normalizeStats(u.stats) };
             if (u.difficultyWins) set.difficultyWins = normalizeDifficultyWins(u.difficultyWins);
+            set.points = typeof u.points === 'number' && u.points >= 0 ? Math.floor(u.points) : computePoints(u);
             if (typeof u.username === 'string' && u.username.trim()) set.username = u.username.trim();
             if (typeof u.passwordHash === 'string' && u.passwordHash.startsWith('scrypt$')) {
                 set.passwordHash = u.passwordHash;
@@ -447,12 +487,13 @@ export default async function handler(req, res) {
 
         if (req.method === 'GET') {
             // Public data only: leaderboard names and stats. No emails, no passwords.
-            const top = await users.find({}, { projection: { username: 1, stats: 1 } })
-                .sort({ 'stats.wins': -1 }).limit(10).toArray();
+            const top = await users.find({}, { projection: { username: 1, stats: 1, points: 1, difficultyWins: 1 } })
+                .sort({ points: -1, 'stats.wins': -1 }).limit(10).toArray();
             const statsDoc = await kv.findOne({ key: 'ttt_wins' });
             return res.status(200).json({
                 leaderboard: top.map(u => ({
                     username: u.username || 'Anonymous',
+                    points: getPoints(u),
                     stats: normalizeStats(u.stats),
                 })),
                 stats: { ...EMPTY_WIN_STATS, ...(statsDoc?.value || {}) },

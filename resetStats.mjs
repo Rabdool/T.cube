@@ -22,7 +22,8 @@ async function resetStats() {
             {},
             { $set: {
                 "stats.wins": 0, "stats.losses": 0, "stats.ties": 0,
-                difficultyWins: { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 }
+                difficultyWins: { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 },
+                points: 0
             } }
         );
         console.log(`✅ Reset stats for ${usersResult.modifiedCount} users.`);
