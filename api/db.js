@@ -267,6 +267,8 @@ async function handleStats(action, body, ctx) {
     if (action === 'record') {
         const field = { win: 'wins', loss: 'losses', tie: 'ties' }[body.result];
         if (!field) throw new HttpError(400, 'Invalid result');
+        // Local 2-player games don't count toward an account's stats.
+        if (!['1p', 'online'].includes(body.mode)) throw new HttpError(400, 'Invalid mode');
 
         const inc = { [`stats.${field}`]: 1 };
         const cpuWin = body.result === 'win' && body.mode === '1p' && DIFFICULTY_IDS.includes(body.difficulty);

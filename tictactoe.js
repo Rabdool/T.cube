@@ -575,7 +575,9 @@ function checkWin(sign) {
 }
 
 function updateUserStats(result) {
-    if (!currentUser) return;
+    // Local 2-player games are two people on one device, so they don't
+    // count toward the logged-in account (otherwise you could farm wins).
+    if (!currentUser || mode === '2p') return;
 
     const field = { win: 'wins', loss: 'losses', tie: 'ties' }[result];
     if (field) currentUser.stats[field] = (currentUser.stats[field] || 0) + 1;
@@ -608,10 +610,8 @@ function endGame(winnerSign) {
                 const isP1 = (winnerSign === p1Sign);
                 if (isP1) {
                     scores.p1++;
-                    updateUserStats('win');
                 } else {
                     scores.p2++;
-                    updateUserStats('loss');
                 }
 
                 const playerName = isP1 ? 'Player 1' : 'Player 2';
