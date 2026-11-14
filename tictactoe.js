@@ -38,7 +38,6 @@ async function fetchInitialDB() {
     try {
         const data = await apiGetPublic();
         if (data.leaderboard) leaderboard = data.leaderboard;
-        if (data.stats) winStats = data.stats;
     } catch (e) {
         console.error('Failed to load from DB', e);
     }
@@ -56,7 +55,7 @@ let board = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 let currentTurn = 'X'; // 'X' always moves first
 let gameActive = false;
 let scores = { p1: 0, p2: 0, draw: 0 };
-let winStats = loadStats();
+let winStats = loadStats(); // per-player wins by difficulty (set on login)
 
 // Sign assignments (can swap between rounds)
 let humanSign = 'X';    // 1P: human sign (default X)
@@ -929,6 +928,7 @@ function getMyUsername() {
 // ===== Auth (server-verified sessions) =====
 function enterApp(user) {
     currentUser = user;
+    winStats = { ...loadStats(), ...user.difficultyWins }; // this player's own unlock progress
     authScreen.classList.remove('active');
     menuScreen.classList.add('active');
     showAdminButton();
@@ -1081,6 +1081,7 @@ function handleForgot(e) {
 
 function handleLogout() {
     currentUser = null;
+    winStats = loadStats();
     setToken(null);
 
     menuScreen.classList.remove('active');
