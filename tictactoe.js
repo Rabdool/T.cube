@@ -362,8 +362,10 @@ function resetBoard() {
 
     cells.forEach(cell => {
         cell.textContent = '';
-        cell.classList.remove('o', 'x', 'taken', 'win-cell');
+        cell.removeAttribute('aria-label');
+        cell.classList.remove('o', 'x', 'taken', 'win-cell', 'just-placed');
     });
+    removeWinLine();
 
     updateStatus();
 
@@ -426,12 +428,59 @@ function cellClick(index) {
     }
 }
 
+// Pieces are SVG strokes so they can be "drawn" onto the wood (see .mark in CSS).
+const MARK_SVG = {
+    X: '<svg class="mark mark-x" viewBox="0 0 100 100" aria-hidden="true">' +
+        '<path pathLength="1" d="M26 26 L74 74"/><path pathLength="1" d="M74 26 L26 74"/></svg>',
+    O: '<svg class="mark mark-o" viewBox="0 0 100 100" aria-hidden="true">' +
+        '<circle pathLength="1" cx="50" cy="50" r="26" transform="rotate(-90 50 50)"/></svg>',
+};
+
 function placeMove(index, sign) {
     board[index] = sign;
     const cell = cells[index];
-    cell.textContent = sign;
-    cell.classList.add(sign.toLowerCase(), 'taken');
+    cell.innerHTML = MARK_SVG[sign];
+    cell.setAttribute('aria-label', sign);
+    cell.classList.add(sign.toLowerCase(), 'taken', 'just-placed');
+    cell.addEventListener('animationend', () => cell.classList.remove('just-placed'), { once: true });
+    Sound.place(sign);
 }
+
+// ===== Winning line =====
+let winLineCombo = null;
+
+function drawWinLine(combo) {
+    removeWinLine();
+    winLineCombo = combo;
+    const boardEl = document.getElementById('board');
+    const a = cells[combo[0]], b = cells[combo[2]];
+    // Cell centers relative to the board (cells' offsetParent is the board).
+    const ax = a.offsetLeft + a.offsetWidth / 2, ay = a.offsetTop + a.offsetHeight / 2;
+    const bx = b.offsetLeft + b.offsetWidth / 2, by = b.offsetTop + b.offsetHeight / 2;
+    const angle = Math.atan2(by - ay, bx - ax);
+    const overhang = a.offsetWidth * 0.32; // extend past the end cells' centers
+    const length = Math.hypot(bx - ax, by - ay) + overhang * 2;
+
+    const line = document.createElement('div');
+    line.className = 'win-line';
+    line.style.left = `${ax - Math.cos(angle) * overhang}px`;
+    line.style.top = `${ay - Math.sin(angle) * overhang}px`;
+    line.style.width = `${length}px`;
+    line.style.transform = `translateY(-50%) rotate(${angle}rad)`;
+    boardEl.appendChild(line);
+}
+
+function removeWinLine() {
+    winLineCombo = null;
+    document.querySelectorAll('.win-line').forEach(el => el.remove());
+}
+
+window.addEventListener('resize', () => {
+    if (!winLineCombo) return;
+    const combo = winLineCombo;
+    drawWinLine(combo);
+    document.querySelectorAll('.win-line').forEach(el => el.classList.add('no-anim'));
+});
 
 // =============================================================
 // ===== COMPUTER AI — 5 difficulty levels ====================
@@ -592,13 +641,20 @@ function endGame(winnerSign) {
     gameActive = false;
     lastWinner = winnerSign; // track who won (null = tie)
 
+    if (!winnerSign) Sound.draw();
+    else if (mode === '2p' || winnerSign === humanSign) Sound.win();
+    else Sound.lose();
+
     // The player who made the last move is simply the currentTurn, 
     // because currentTurn hasn't been swapped yet (swap happens *after* endGame check if no win/tie)
     tieLastMover = (winnerSign === null) ? currentTurn : null;
 
     if (winnerSign) {
         const combo = checkWin(winnerSign);
-        if (combo) combo.forEach(i => cells[i].classList.add('win-cell'));
+        if (combo) {
+            combo.forEach(i => cells[i].classList.add('win-cell'));
+            drawWinLine(combo);
+        }
     }
 
     setTimeout(() => {
