@@ -15,83 +15,61 @@ function toggleTheme() {
 // ===== Database Integration =====
 let dbUsers = [];
 let dbStats = { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 };
+let currentUserEmail = null;
 
+// Admin-only endpoint: the server rejects this unless the session belongs to an admin.
 async function fetchInitialDB() {
     try {
-        const res = await fetch('/api/db');
-        const data = await res.json();
-        if (data.users) dbUsers = data.users;
-        if (data.stats) dbStats = data.stats;
+        const data = await apiCall('admin', 'list_users');
+        dbUsers = data.users || [];
+        dbStats = data.stats || dbStats;
     } catch (e) {
         console.error('Failed to load from DB', e);
+        showToast('❌', e.message);
     }
 }
 
-// ===== Persistent Data Helpers =====
 function getUsers() {
     return dbUsers;
-}
-
-function saveUsers(data, action = 'update') {
-    // If we're updating a single user, data is the user object.
-    if (!Array.isArray(data)) {
-        const idx = dbUsers.findIndex(u => u.email === data.email);
-        if (idx !== -1) dbUsers[idx] = data;
-        else dbUsers.push(data);
-    } else {
-        dbUsers = data;
-    }
-
-    fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'users', action, data })
-    }).catch(e => console.error('Admin sync failed', e));
 }
 
 function getWinStats() {
     return dbStats;
 }
 
-function saveWinStats(stats) {
-    dbStats = stats;
-    fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'stats', data: stats })
-    }).catch(e => console.error(e));
+// Run an admin action, then reload data from the server so the UI matches the DB.
+async function adminAction(action, payload, successIcon, successMsg) {
+    try {
+        const result = await apiCall('admin', action, payload);
+        await fetchInitialDB();
+        refreshDashboard();
+        refreshUsersTable();
+        if (successMsg) showToast(successIcon, successMsg);
+        return result;
+    } catch (e) {
+        showToast('❌', e.message);
+        return null;
+    }
 }
 
 // ===== Admin Auth Gate =====
-const currentUserEmail = localStorage.getItem('ttt_currentUser');
-
-function checkAdminAccess() {
-    const ALLOWED_ADMINS = ['abdurrahmanabdulkabir06@gmail.com', 'test-admin-verification@gmail.com'];
-    
-    if (!currentUserEmail || !ALLOWED_ADMINS.includes(currentUserEmail)) {
-        console.warn(`Admin access denied for: ${currentUserEmail}`);
+async function checkAdminAccess() {
+    if (!getToken()) {
         window.location.href = 'tictactoe.html';
         return false;
     }
-
-    const users = getUsers();
-    const currentUser = users.find(u => u.email === currentUserEmail);
-
-    // Set admin flag based on allowed list
-    if (currentUser) {
-        currentUser.isAdmin = ALLOWED_ADMINS.includes(currentUser.email);
-    }
-
-    if (!currentUser || !currentUser.isAdmin) {
+    try {
+        const { user } = await apiCall('auth', 'me');
+        if (!user.isAdmin) throw new Error('not admin');
+        currentUserEmail = user.email;
+        document.getElementById('admin-name').textContent = user.username || user.email;
+        document.getElementById('admin-avatar').textContent = (user.username || user.email || 'A')[0].toUpperCase();
+        return true;
+    } catch (e) {
+        if (e.status === 401) setToken(null);
         window.location.href = 'tictactoe.html';
         return false;
     }
-
-    // Set sidebar admin info
-    document.getElementById('admin-name').textContent = currentUser.username || currentUser.email;
-    document.getElementById('admin-avatar').textContent = (currentUser.username || currentUser.email || 'A')[0].toUpperCase();
-
-    return true;
 }
 
 // ===== Section Navigation =====
@@ -300,7 +278,10 @@ function openEditModal(email) {
 
     document.getElementById('edit-user-email').value = email;
     document.getElementById('edit-username').value = user.username || '';
-    document.getElementById('edit-role').value = user.isAdmin ? 'admin' : 'user';
+    const roleSelect = document.getElementById('edit-role');
+    roleSelect.value = user.isAdmin ? 'admin' : 'user';
+    roleSelect.disabled = true; // admins are configured server-side (ADMIN_EMAILS)
+    roleSelect.title = 'Admin access is set by the ADMIN_EMAILS environment variable';
     document.getElementById('edit-modal').classList.add('active');
 }
 
@@ -338,35 +319,17 @@ function closeStatsModal() {
     document.getElementById('user-stats-modal').classList.remove('active');
 }
 
-function saveUserEdit() {
+async function saveUserEdit() {
     const email = document.getElementById('edit-user-email').value;
     const newUsername = document.getElementById('edit-username').value.trim();
-    const newRole = document.getElementById('edit-role').value;
 
     if (!newUsername || newUsername.length < 3) {
         showToast('❌', 'Username must be at least 3 characters');
         return;
     }
 
-    let users = getUsers();
-    const idx = users.findIndex(u => u.email === email);
-    if (idx === -1) return;
-
-    // Check for duplicate username
-    const dup = users.find(u => u.username === newUsername && u.email !== email);
-    if (dup) {
-        showToast('❌', 'Username is already taken');
-        return;
-    }
-
-    users[idx].username = newUsername;
-    users[idx].isAdmin = (newRole === 'admin');
-
-    saveUsers(users[idx], 'update');
-    closeModal();
-    refreshDashboard();
-    refreshUsersTable();
-    showToast('✅', `User "${newUsername}" updated`);
+    const ok = await adminAction('update_user', { email, username: newUsername }, '✅', `User "${newUsername}" updated`);
+    if (ok) closeModal();
 }
 
 // ===== Confirm Modal =====
@@ -405,15 +368,7 @@ function confirmDeleteUser(email) {
         'Delete User',
         `This will permanently delete "${displayName}". This action cannot be undone.`,
         'Delete User',
-        () => {
-            let users = getUsers();
-            const userToDelete = users.find(u => u.email === email);
-            dbUsers = users.filter(u => u.email !== email);
-            saveUsers({ email }, 'delete'); // Send email for deletion
-            refreshDashboard();
-            refreshUsersTable();
-            showToast('🗑️', `User "${displayName}" deleted`);
-        }
+        () => adminAction('delete_user', { email }, '🗑️', `User "${displayName}" deleted`)
     );
 }
 
@@ -423,26 +378,7 @@ function confirmResetStats() {
         'Reset Game Stats',
         'This will clear all win statistics across all difficulty levels and reset every users gameplay stats to 0. User accounts will not be deleted.',
         'Reset Stats',
-        () => {
-            // Reset global AI stats
-            saveWinStats({ very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 });
-            
-            // Reset all user stats locally
-            dbUsers.forEach(u => {
-                u.stats = { wins: 0, losses: 0, ties: 0 };
-            });
-
-            // Trigger backend to wipe users' stats
-            fetch('/api/db', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'users', action: 'reset_all_user_stats' })
-            }).catch(e => console.error('Failed to reset all user stats', e));
-
-            refreshDashboard();
-            refreshUsersTable();
-            showToast('📊', 'All game statistics have been reset');
-        }
+        () => adminAction('reset_stats', {}, '📊', 'All game statistics have been reset')
     );
 }
 
@@ -451,9 +387,14 @@ function confirmDeleteAllUsers() {
         'Delete All Users',
         'This will permanently delete ALL user accounts. You will be logged out. This action cannot be undone!',
         'Delete Everyone',
-        () => {
-            saveUsers([], 'sync_all'); // Clear all
-            localStorage.removeItem('ttt_currentUser');
+        async () => {
+            try {
+                await apiCall('admin', 'delete_all_users');
+            } catch (e) {
+                showToast('❌', e.message);
+                return;
+            }
+            setToken(null);
             showToast('⚠️', 'All users deleted. Redirecting...');
             setTimeout(() => {
                 window.location.href = 'tictactoe.html';
@@ -498,12 +439,9 @@ function importData(event) {
                 'Import Data',
                 `This will replace all current data with the imported backup (${data.users.length} users). Continue?`,
                 'Import',
-                () => {
-                    saveUsers(data.users);
-                    saveWinStats(data.winStats);
-                    refreshDashboard();
-                    refreshUsersTable();
-                    showToast('✅', `Imported ${data.users.length} users and stats`);
+                async () => {
+                    const result = await adminAction('import', { users: data.users, winStats: data.winStats });
+                    if (result) showToast('✅', `Imported ${result.imported} users and stats`);
                 }
             );
         } catch (err) {
@@ -535,19 +473,13 @@ function goBackToGame() {
 }
 
 // ===== Utilities =====
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
-}
-
 function escapeAttr(str) {
     return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
 // ===== Init =====
 window.addEventListener('DOMContentLoaded', async () => {
+    if (!(await checkAdminAccess())) return;
     await fetchInitialDB();
-    if (!checkAdminAccess()) return;
     refreshDashboard();
 });

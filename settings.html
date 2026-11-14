@@ -66,6 +66,7 @@
     </div>
 
     <!-- Minimal JS to handle the Settings logic without the full game logic -->
+    <script src="apiClient.js"></script>
     <script>
         function toggleTheme() {
             const body = document.body;
@@ -81,62 +82,35 @@
         }
         initTheme();
 
-        const currentUser = localStorage.getItem('ttt_currentUser');
-        let dbUsers = [];
-
-        async function fetchUsers() {
-            try {
-                const res = await fetch('/api/db');
-                const data = await res.json();
-                if (data.users) dbUsers = data.users;
-            } catch (e) {
-                console.error('Failed to load users', e);
-            }
-        }
-
         window.onload = async function () {
-            if (!currentUser) {
+            if (!getToken()) {
                 window.location.href = 'tictactoe.html';
                 return;
             }
-
-            await fetchUsers();
-            const user = dbUsers.find(u => u.email === currentUser);
-
-            if (user) {
+            try {
+                const { user } = await apiCall('auth', 'me');
                 document.getElementById('settings-email').value = user.email;
                 document.getElementById('settings-username').value = user.username || '';
+            } catch (e) {
+                if (e.status === 401) {
+                    setToken(null);
+                    window.location.href = 'tictactoe.html';
+                }
             }
         };
 
         async function handleUpdateSettings(e) {
             e.preventDefault();
-            const newUsername = document.getElementById('settings-username').value.trim();
+            const username = document.getElementById('settings-username').value.trim();
             const statusEl = document.getElementById('settings-status');
 
-            const user = dbUsers.find(u => u.email === currentUser);
-            if (!user) return;
-
-            const taken = dbUsers.find(u => u.username === newUsername && u.email !== currentUser);
-            if (taken) {
-                statusEl.style.color = '#ff6b6b';
-                statusEl.textContent = 'Username is already taken.';
-                return;
-            }
-
-            user.username = newUsername;
-
             try {
-                await fetch('/api/db', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: 'users', action: 'update', data: user })
-                });
+                await apiCall('auth', 'update_profile', { username });
                 statusEl.style.color = 'var(--wood-light)';
                 statusEl.textContent = 'Settings saved successfully!';
-            } catch (e) {
+            } catch (err) {
                 statusEl.style.color = '#ff6b6b';
-                statusEl.textContent = 'Failed to save. Try again.';
+                statusEl.textContent = err.message || 'Failed to save. Try again.';
             }
 
             setTimeout(() => {
