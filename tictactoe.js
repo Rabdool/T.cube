@@ -153,7 +153,7 @@ async function showLeaderboard() {
 function renderLeaderboard() {
     leaderboardList.innerHTML = '';
     
-    // Server returns the top 10, already sorted by wins
+    // Server returns the top 10, already sorted by points
     const sortedUsers = leaderboard;
 
     if (sortedUsers.length === 0) {
@@ -166,6 +166,7 @@ function renderLeaderboard() {
         const wins = user.stats?.wins || 0;
         const losses = user.stats?.losses || 0;
         const ties = user.stats?.ties || 0;
+        const points = user.points || 0;
         
         const item = document.createElement('div');
         item.className = `leaderboard-item rank-${rank}`;
@@ -178,8 +179,8 @@ function renderLeaderboard() {
                 <div class="player-stats">${wins}W - ${losses}L - ${ties}T</div>
             </div>
             <div class="player-wins">
-                <span class="win-count">${wins}</span>
-                <span class="win-label">Wins</span>
+                <span class="win-count">${points}</span>
+                <span class="win-label">${points === 1 ? 'Point' : 'Points'}</span>
             </div>
         `;
         leaderboardList.appendChild(item);
