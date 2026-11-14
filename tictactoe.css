@@ -1320,3 +1320,41 @@ body.light-theme .side-label {
         display: none !important;
     }
 }
+/* ===== Boot loader (shown while a saved session is being checked) ===== */
+#boot-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+body:not(.booting) #boot-loader {
+    display: none;
+}
+
+body.booting .screen {
+    visibility: hidden;
+}
+
+.boot-logo {
+    width: 96px;
+    height: auto;
+    border-radius: 16px;
+    animation: bootPulse 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes bootPulse {
+    from { transform: scale(0.94); opacity: 0.7; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .boot-logo { animation: none; }
+}

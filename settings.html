@@ -23,6 +23,10 @@
 </head>
 
 <body>
+    <script>
+        // Apply saved theme before first paint (avoids a dark-to-light flash).
+        try { if (localStorage.getItem('ttt_theme') === 'light') document.body.classList.add('light-theme'); } catch (e) {}
+    </script>
     <div class="bg-glow bg-glow-1"></div>
     <div class="bg-glow bg-glow-2"></div>
 

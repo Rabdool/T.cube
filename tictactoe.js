@@ -1154,8 +1154,12 @@ function handleLogout() {
 
 // Initialize App
 async function initializeApp() {
-    await fetchInitialDB();
-    initAuth();
+    fetchInitialDB(); // leaderboard data; not needed to decide which screen to show
+    // If the session check hangs, fall back to the login screen after a few seconds.
+    const fallback = setTimeout(() => document.body.classList.remove('booting'), 6000);
+    await initAuth();
+    clearTimeout(fallback);
+    document.body.classList.remove('booting');
 }
 initializeApp();
 
