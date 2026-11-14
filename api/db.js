@@ -1,7 +1,7 @@
 import { MongoClient } from 'mongodb';
 import {
     hashPassword, verifyPassword, safeEqual,
-    createToken, getRequestEmail, isAdminEmail
+    createToken, getRequestSession, isAdminEmail, ConfigError
 } from './_auth.js';
 
 const uri = process.env.STORAGE_URL || process.env.MONGODB_URI;
@@ -11,6 +11,12 @@ const DIFFICULTY_IDS = ['very_easy', 'easy', 'normal', 'hard', 'very_hard'];
 const EMPTY_WIN_STATS = { very_easy: 0, easy: 0, normal: 0, hard: 0, very_hard: 0 };
 const USERNAME_RE = /^[\p{L}\p{N}_ .-]{3,20}$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
+
+// Failed-password limits, per 15-minute window.
+const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const MAX_FAILS_PER_ACCOUNT = 10;
+const MAX_FAILS_PER_IP = 30;
 
 let clientPromise;
 
@@ -107,6 +113,59 @@ async function migrateLegacyKv(users, kv) {
     migrationChecked = true;
 }
 
+// ===== Brute-force protection =====
+let attemptsIndexReady = false;
+async function attemptsCollection(db) {
+    const col = db.collection('login_attempts');
+    if (!attemptsIndexReady) {
+        // MongoDB deletes old attempts automatically once the window has passed.
+        await col.createIndex({ at: 1 }, { expireAfterSeconds: ATTEMPT_WINDOW_MS / 1000 });
+        await col.createIndex({ key: 1, at: 1 });
+        attemptsIndexReady = true;
+    }
+    return col;
+}
+
+function attemptKeys(ctx, account) {
+    const keys = [{ key: `acct:${account.toLowerCase()}`, max: MAX_FAILS_PER_ACCOUNT }];
+    if (ctx.ip) keys.push({ key: `ip:${ctx.ip}`, max: MAX_FAILS_PER_IP });
+    return keys;
+}
+
+async function assertNotLocked(ctx, account) {
+    const col = await attemptsCollection(ctx.db);
+    const since = new Date(Date.now() - ATTEMPT_WINDOW_MS);
+    for (const { key, max } of attemptKeys(ctx, account)) {
+        if (await col.countDocuments({ key, at: { $gte: since } }) >= max) {
+            throw new HttpError(429, 'Too many failed attempts. Please wait 15 minutes and try again.');
+        }
+    }
+}
+
+async function recordFailure(ctx, account) {
+    const col = await attemptsCollection(ctx.db);
+    const at = new Date();
+    await col.insertMany(attemptKeys(ctx, account).map(({ key }) => ({ key, at })));
+}
+
+async function clearFailures(ctx, account) {
+    const col = await attemptsCollection(ctx.db);
+    await col.deleteMany({ key: `acct:${account.toLowerCase()}` });
+}
+
+// Checks a password against a user record, upgrading legacy plaintext passwords to a hash.
+async function checkPassword(users, user, password) {
+    if (user?.passwordHash) return verifyPassword(password, user.passwordHash);
+    if (typeof user?.password === 'string' && safeEqual(password, user.password)) {
+        await users.updateOne(
+            { _id: user._id },
+            { $set: { passwordHash: hashPassword(password) }, $unset: { password: '' } }
+        );
+        return true;
+    }
+    return false;
+}
+
 // ===== Action handlers =====
 async function handleAuth(action, body, ctx) {
     const { users } = ctx;
@@ -116,8 +175,8 @@ async function handleAuth(action, body, ctx) {
         const email = typeof body.email === 'string' ? body.email.trim() : '';
         const password = body.password;
         if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Please enter a valid email.');
-        if (typeof password !== 'string' || password.length < 6) {
-            throw new HttpError(400, 'Password must be at least 6 characters.');
+        if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+            throw new HttpError(400, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
         }
         if (await users.findOne({ email: ciExact(email) })) {
             throw new HttpError(409, 'Account already exists for this email.');
@@ -143,21 +202,15 @@ async function handleAuth(action, body, ctx) {
         const user = await users.findOne({
             $or: [{ email: ciExact(identifier) }, { username: ciExact(identifier) }]
         });
+        // Lock by the account's email when it exists, so email and username share one limit.
+        const account = user?.email || identifier;
+        await assertNotLocked(ctx, account);
 
-        let ok = false;
-        if (user?.passwordHash) {
-            ok = verifyPassword(password, user.passwordHash);
-        } else if (typeof user?.password === 'string') {
-            // Legacy plaintext account: verify, then upgrade to a hash.
-            ok = safeEqual(password, user.password);
-            if (ok) {
-                await users.updateOne(
-                    { _id: user._id },
-                    { $set: { passwordHash: hashPassword(password) }, $unset: { password: '' } }
-                );
-            }
+        if (!(await checkPassword(users, user, password))) {
+            await recordFailure(ctx, account);
+            throw new HttpError(401, 'Invalid credentials.');
         }
-        if (!ok) throw new HttpError(401, 'Invalid credentials.');
+        await clearFailures(ctx, account);
         return { token: createToken(user.email), user: toProfile(user) };
     }
 
@@ -173,6 +226,26 @@ async function handleAuth(action, body, ctx) {
         await assertUsernameFree(users, username, me.email);
         await users.updateOne({ _id: me._id }, { $set: { username } });
         return { user: toProfile({ ...me, username }) };
+    }
+
+    if (action === 'change_password') {
+        const { currentPassword, newPassword } = body;
+        if (typeof newPassword !== 'string' || newPassword.length < MIN_PASSWORD_LENGTH) {
+            throw new HttpError(400, `New password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+        }
+        await assertNotLocked(ctx, me.email);
+        if (typeof currentPassword !== 'string' || !(await checkPassword(users, me, currentPassword))) {
+            await recordFailure(ctx, me.email);
+            throw new HttpError(403, 'Current password is incorrect.');
+        }
+        await clearFailures(ctx, me.email);
+
+        // Tokens issued before this moment stop working: other devices get logged out.
+        await users.updateOne(
+            { _id: me._id },
+            { $set: { passwordHash: hashPassword(newPassword), passwordChangedAt: new Date() }, $unset: { password: '' } }
+        );
+        return { token: createToken(me.email) };
     }
 
     throw new HttpError(400, 'Invalid auth action');
@@ -306,6 +379,9 @@ async function requireUser(ctx) {
     if (!ctx.email) throw new HttpError(401, 'Please log in.');
     const user = await ctx.users.findOne({ email: ctx.email });
     if (!user) throw new HttpError(401, 'Session expired. Please log in again.');
+    if (user.passwordChangedAt && ctx.session.iat < user.passwordChangedAt.getTime()) {
+        throw new HttpError(401, 'Your password was changed. Please log in again.');
+    }
     return user;
 }
 
@@ -345,7 +421,10 @@ export default async function handler(req, res) {
         }
 
         const body = req.body || {};
-        const ctx = { db, users, kv, email: getRequestEmail(req) };
+        const session = getRequestSession(req);
+        const forwarded = req.headers?.['x-forwarded-for'];
+        const ip = (typeof forwarded === 'string' && forwarded.split(',')[0].trim()) || req.socket?.remoteAddress || null;
+        const ctx = { db, users, kv, ip, session, email: session?.email || null };
         const handlers = {
             auth: handleAuth,
             stats: handleStats,
@@ -358,6 +437,10 @@ export default async function handler(req, res) {
     } catch (error) {
         if (error instanceof HttpError) {
             return res.status(error.status).json({ error: error.message });
+        }
+        if (error instanceof ConfigError) {
+            console.error('Config Error:', error.message);
+            return res.status(500).json({ error: 'Server is misconfigured (AUTH_SECRET). Please contact the admin.' });
         }
         console.error('API Error:', error);
         return res.status(500).json({ error: 'Server error' });
