@@ -15,6 +15,19 @@
 </head>
 
 <body>
+    <script>
+        // Runs before first paint: apply the saved theme, and if there's a saved session,
+        // show a loader instead of the login screen while the session is checked.
+        try {
+            if (localStorage.getItem('ttt_theme') === 'light') document.body.classList.add('light-theme');
+            if (localStorage.getItem('ttt_token')) document.body.classList.add('booting');
+        } catch (e) {}
+    </script>
+    <div id="boot-loader" aria-live="polite">
+        <img src="logo.png" alt="" class="boot-logo">
+        <span class="boot-text">Loading…</span>
+    </div>
+
     <!-- Theme Toggle -->
     <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
         <!-- Sun icon for Dark Mode -->
