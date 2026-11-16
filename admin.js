@@ -130,7 +130,7 @@ function refreshDashboard() {
     let topDiff = '—';
     for (let i = DIFFICULTY_META.length - 1; i >= 0; i--) {
         if (stats[DIFFICULTY_META[i].id] > 0) {
-            topDiff = DIFFICULTY_META[i].emoji + ' ' + DIFFICULTY_META[i].label;
+            topDiff = DIFFICULTY_META[i].label;
             break;
         }
     }
@@ -183,8 +183,8 @@ function refreshDashboard() {
     const winGrid = document.getElementById('win-stats-grid');
     winGrid.innerHTML = DIFFICULTY_META.map(d => `
         <div class="stat-card" style="text-align: center;">
-            <div style="font-size: 1.6rem; margin-bottom: 0.5rem;">${d.emoji}</div>
-            <div class="stat-card-value" style="color: ${d.color}">${stats[d.id] || 0}</div>
+            <span class="diff-dot" style="background: ${d.color}"></span>
+            <div class="stat-card-value">${stats[d.id] || 0}</div>
             <div class="stat-card-label">${d.label}</div>
         </div>
     `).join('');
